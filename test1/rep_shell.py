@@ -10,4 +10,4 @@ convenience.c=c9
 from north_simple_camera import SimpleCamera, SimplePhoto
 import im_proc
 
-cam = SimpleCamera(1)
+cam = SimpleCamera(0)

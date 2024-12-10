@@ -388,7 +388,9 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate, show_
               plt.show()
             else:
               plt.savefig(f'RMSE_performance_fig_{i}')
-
+        
+        if i == 4:
+            input("Fith round, press enter to continue...")
 
 def target_color_AL_campaign(starting_measurements, max_loops, target_RGB, simulate, show_fig ):
     #Number of random data points to start with

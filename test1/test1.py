@@ -67,4 +67,5 @@ c9.open_clamp()
 c9.goto_safe(rack_left[0])
 c9.open_gripper()
 c9.goto_safe(home)
+c9.goto_xy_safe(clamp)
 
