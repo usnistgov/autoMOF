@@ -11,7 +11,7 @@ from time import sleep
 
 from north_simple_camera import SimpleCamera, SimplePhoto
 import im_proc
-cam = SimpleCamera(1)
+cam = SimpleCamera(0)
 
 if c9.sim:
     sleep(2)
@@ -65,7 +65,7 @@ def colormix(vial,comp):
     c9.goto_xy_safe(clamp)
     c9.close_clamp()
     c9.move_z(186)
-    c9.cap(revs=2,torque_thresh=1750)
+    c9.cap(revs=2,torque_thresh=1650)
     c9.open_clamp()
 
     c9.goto_safe(camera_pos)

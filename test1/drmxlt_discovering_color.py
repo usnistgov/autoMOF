@@ -162,6 +162,7 @@ def train(training_x, training_y):
   kernel2 = GPy.kern.Coregionalize(input_dim = 1, output_dim=3, rank=3 )
 
   kernel = kernel1 * kernel2
+  #kernel = kernel1
 
   #Range must have a mean of 0. So for RGB values [0,255] we should subtract 128
   # train_y = training_y - 128
@@ -388,9 +389,7 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate, show_
               plt.show()
             else:
               plt.savefig(f'RMSE_performance_fig_{i}')
-        
-        if i == 4:
-            input("Fith round, press enter to continue...")
+
 
 def target_color_AL_campaign(starting_measurements, max_loops, target_RGB, simulate, show_fig ):
     #Number of random data points to start with

@@ -88,9 +88,10 @@ def pipette(vol=.5,source=p_rack_right[5]):
     c.aspirate_ml(0,vol)
     c.move_z(300)
     c.set_pump_valve(0, c.PUMP_VALVE_RIGHT)
-    c.aspirate_ml(0,.1)
+    #c.aspirate_ml(0,.1)
     c.set_pump_valve(0, c.PUMP_VALVE_LEFT)
-    c.aspirate_ml(0,.9-vol)
+    #c.aspirate_ml(0,.9-vol)
+    c.aspirate_ml(0,1-vol)
 
     c.goto_xy_safe(s_clamp)
     c.move_z(200)

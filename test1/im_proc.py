@@ -11,11 +11,22 @@ def crop_img(img, x1, y1, x2, y2):
     on_original[y1:y2, x1:x2] = cropped_img
     return cropped_img, on_original
 
+
+def place_on_original(cropped, original, crop_coords):
+    x1, y1, x2, y2 = crop_coords
+    on_original=original
+    #on_original = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+    #on_original = cv2.cvtColor(on_original, cv2.COLOR_GRAY2BGR)
+    #on_original = cv2.blur(on_original, (15, 15))
+    on_original[y1:y2, x1:x2] = cropped
+    cv2.rectangle(on_original, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    return on_original
+
 def get_color(img):
        
     return np.array(img.mean(axis=0).mean(axis=0), dtype=np.uint8)
 if __name__ == "__main__":
-    cam = SimpleCamera(2)
+    cam = SimpleCamera(0)
 
     sleep(5)  # let camera object load
 
@@ -28,3 +39,5 @@ if __name__ == "__main__":
     #avg_color_tile.show()
     print(avg_color)
     print(np.flipud(avg_color))
+    
+    

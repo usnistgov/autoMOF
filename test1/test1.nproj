@@ -447,6 +447,18 @@
       "z": -0.0075,
       "rot": 0.0,
       "channels": []
+    },
+    "19": {
+      "res_id": "nist_reactor_block.2024_12_16",
+      "name": "react1",
+      "pyname": "react1",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.225,
+      "y": 0.0,
+      "z": 0.005,
+      "rot": 0.0,
+      "channels": []
     }
   },
   "locations": {
@@ -517,9 +529,9 @@
       "type": "Location",
       "tool": 1,
       "counts": [
-        2448,
-        5805,
-        39725,
+        2447,
+        5753,
+        39633,
         130
       ],
       "ik_soln": 0,
