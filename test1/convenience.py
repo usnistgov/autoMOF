@@ -1,6 +1,7 @@
 c=None
 from Locator import *
 
+#Pump index:angle
 pump_c_pos = {5: 45, 4: 90, 3:135}
 
 #dispense the full volume of a syringe pump
