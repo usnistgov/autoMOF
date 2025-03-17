@@ -25,6 +25,13 @@ def place_on_original(cropped, original, crop_coords):
 def get_color(img):
        
     return np.array(img.mean(axis=0).mean(axis=0), dtype=np.uint8)
+
+def get_ave_color(img):
+    cropped, original = crop_img(pic.img, *[590, 350, 660, 450])
+    avg_color = get_color(cropped)
+
+    return avg_color
+
 if __name__ == "__main__":
     cam = SimpleCamera(0)
 

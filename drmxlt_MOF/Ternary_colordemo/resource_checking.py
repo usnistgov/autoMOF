@@ -34,6 +34,7 @@ def exp_fluid_resource_check(Sample_ID, sample_db, fluid_db):
   #Check precusors
   precursor_1_vol = exp_volumes["Precursor 1"]
   precursor_2_vol = exp_volumes["Precursor 2"]
+  precursor_3_vol = exp_volumes["Precursor 3"]
 
   enough_precursor_1, precursor_1_needed = single_fluid_check(precursor_1_vol, 'Precursor 1', fluid_db)
   if enough_precursor_1 == False:
@@ -42,8 +43,15 @@ def exp_fluid_resource_check(Sample_ID, sample_db, fluid_db):
   enough_precursor_2, precursor_2_needed = single_fluid_check(precursor_2_vol, 'Precursor 2', fluid_db)
   if enough_precursor_2 == False:
     raise Exception("Not enough precursor 2")
+  
+  enough_precursor_3, precursor_3_needed = single_fluid_check(precursor_3_vol, 'Precursor 3', fluid_db)
+  if enough_precursor_3 == False:
+    raise Exception("Not enough precursor 2")
 
 
-  fluid_assignments = {assigned_contrast: contrast_needed, "Precursor 1": precursor_1_needed, "Precursor 2": precursor_2_needed}
+  fluid_assignments = {assigned_contrast: contrast_needed, 
+                       "Precursor 1": precursor_1_needed, 
+                       "Precursor 2": precursor_2_needed,
+                       "Precursor 3": precursor_3_needed}
 
   return fluid_assignments
