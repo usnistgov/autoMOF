@@ -11,21 +11,21 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db):
   if source == destination:
     raise Exception("Source and destination are the same")
 
-  # Can only pipette to and from the vial rack, the clamp, and the heater blocks
-  #TODO put in a check for the heaterblock readyness
+  # Can only pipette to and from the vial rack, the clamp, and the reactors
+  #TODO put in a check for the reactor readyness
   in_vial_rack = source[0] == 1
   in_clamp = source[0] == 3
-  in_heater_block = source[0] == 4 
+  in_reactor = source[0] == 4 
 
-  test1 = in_vial_rack or in_clamp or in_heater_block
+  test1 = in_vial_rack or in_clamp or in_reactor
   if test1 == False:
     raise Exception("Invalid source location for pipetting")
 
   dest_vial_rack = destination[0] == 1
   dest_clamp = destination[0] == 3
-  dest_heater_block = destination[0] == 4
+  dest_reactor = destination[0] == 4
 
-  test2 = dest_vial_rack or dest_clamp or dest_heater_block
+  test2 = dest_vial_rack or dest_clamp or dest_reactor
 
   if test2 == False:
     raise Exception("Invalid destination location for pipetting")
@@ -110,9 +110,9 @@ def Fluid_dispense(fluid, exp_vol, fluid_db, destination):
 
   in_vial_rack = fluid_address[0] == 1
   in_clamp = fluid_address[0] == 3
-  in_heater_block = fluid_address[0] == 4
-  test = in_vial_rack or in_clamp or in_heater_block
-  if test == True: #If the fluid is in the vial rack, clamp, or heater block
+  in_reactor = fluid_address[0] == 4
+  test = in_vial_rack or in_clamp or in_reactor
+  if test == True: #If the fluid is in the vial rack, clamp, or reactor
     Pipette_Fluid(exp_vol, fluid_address, destination)
 
   elif fluid_address[0] == 5: #If the fluid is in the syringe pump

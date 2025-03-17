@@ -1,6 +1,6 @@
 from pipette_traking import *
 from vial_tracking import *
-from heater_block_traking import *
+from drmxlt_MOF.reactor_traking import *
 
 
 
@@ -22,7 +22,7 @@ system_db['gripper_occupied'] = False
 system_db['clamp_status'] = "Closed"
 system_db['clamp_assignment'] = "Empty"
 
-system_db["heater_block"] = heater_block
+system_db["reactor"] = reactor
 
 # def update_system_db(system_db, alt_db):
 #   #Read the alt_db for addresses and use that to update system_db

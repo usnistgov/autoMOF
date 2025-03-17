@@ -1,15 +1,15 @@
 
 from Locator import *
-#TODO: Change add the heater block locations to Locator.py
+#TODO: Change add the reactor locations to Locator.py
 
-heater_block_0 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-heater_block_1 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-heater_block_2 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-heater_block_3 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-heater_block_4 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-heater_block_5 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-heater_block_6 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-heater_block_7 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_0 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_1 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_2 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_3 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_4 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_5 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_6 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+reactor_7 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
 
 
 # Carousel Position for Syringe Pump Dispense to Clamp
@@ -37,11 +37,11 @@ clamp_pipette_safe_z = 300 #Height above vial that's safely clear
 
 clamp_pipette_zs = [clamp_pipette_dispense_z, clamp_pipette_draw_z, clamp_pipette_safe_z]
 
-heater_block_pipette_dispense_z = 150 #Height above vial for dispensing from pipette tip
-heater_block_pipette_draw_z = 130 #Height in vial for drawing into pipette tip
-heater_block_pipette_safe_z = 300 #Height above vial that's safely clear
+reactor_pipette_dispense_z = 150 #Height above vial for dispensing from pipette tip
+reactor_pipette_draw_z = 130 #Height in vial for drawing into pipette tip
+reactor_pipette_safe_z = 300 #Height above vial that's safely clear
 
-heater_block_pipette_zs = [heater_block_pipette_dispense_z, heater_block_pipette_draw_z, heater_block_pipette_safe_z]
+reactor_pipette_zs = [reactor_pipette_dispense_z, reactor_pipette_draw_z, reactor_pipette_safe_z]
 
 ################################################################################
 '''
@@ -51,7 +51,7 @@ Zipcode system
 1 => [Vial Rack, left or right, rack index 0-47]
 2 => [gripper, 0, 0]
 3 => [clamp, 0, 0]
-4 => [heater, 0 to 7, heater index 0-3]
+4 => [reactor, 0 to 7, reactor index 0-3]
 5 => [syringe pump, pump 1-3, splitter valve]  #note syringe pump 0 is in the arm
 
 '''
@@ -69,8 +69,8 @@ def zip_to_pipette_z(zipcode):
   if zipcode[0] == 3: #clamp
     zs = clamp_pipette_zs
 
-  if zipcode[0] == 4: #heater block
-    zs = heater_block_pipette_zs
+  if zipcode[0] == 4: #reactor
+    zs = reactor_pipette_zs
 
   if zipcode[0] == 5: #syringe pumps
     raise Exception("Syringe pumps not valid location for pipetting")
@@ -95,33 +95,33 @@ def zip_to_locator(zipcode):
   if zipcode[0] == 3: #clamp
     location = clamp
 
-  if zipcode[0] == 4: #heater block
-    if zipcode[1] == 0: #heater block 0
-      location = heater_block_0[zipcode[2]] #position in heater block 0
+  if zipcode[0] == 4: #reactor
+    if zipcode[1] == 0: #reactor 0
+      location = reactor_0[zipcode[2]] #position in reactor 0
 
-    elif zipcode[1] == 1: #heater block 1
-      location = heater_block_1[zipcode[2]] #position in heater block 1
+    elif zipcode[1] == 1: #reactor 1
+      location = reactor_1[zipcode[2]] #position in reactor 1
 
-    elif zipcode[1] == 2: #heater block 2
-      location = heater_block_2[zipcode[2]] #position in heater block 2
+    elif zipcode[1] == 2: #reactor 2
+      location = reactor_2[zipcode[2]] #position in reactor 2
 
-    elif zipcode[1] == 3: #heater block 3
-      location = heater_block_3[zipcode[2]] #position in heater block 3
+    elif zipcode[1] == 3: #reactor 3
+      location = reactor_3[zipcode[2]] #position in reactor 3
 
-    elif zipcode[1] == 4: #heater block 4
-      location = heater_block_4[zipcode[2]] #position in heater block 4
+    elif zipcode[1] == 4: #reactor 4
+      location = reactor_4[zipcode[2]] #position in reactor 4
 
-    elif zipcode[1] == 5: #heater block 5
-      location = heater_block_5[zipcode[2]] #position in heater block 5
+    elif zipcode[1] == 5: #reactor 5
+      location = reactor_5[zipcode[2]] #position in reactor 5
 
-    elif zipcode[1] == 6: #heater block 6
-      location = heater_block_6[zipcode[2]] #position in heater block 6
+    elif zipcode[1] == 6: #reactor 6
+      location = reactor_6[zipcode[2]] #position in reactor 6
 
-    elif zipcode[1] == 7: #heater block 7
-      location = heater_block_7[zipcode[2]] #position in heater block 7
+    elif zipcode[1] == 7: #reactor 7
+      location = reactor_7[zipcode[2]] #position in reactor 7
 
     else:
-      raise Exception("Invalid heater block location")
+      raise Exception("Invalid reactor location")
 
   if zipcode[0] == 5: #syringe pumps 
   ### NOTE: locations of syringe pumps are carousel positions rather than arm poses!!! #####

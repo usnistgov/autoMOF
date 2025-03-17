@@ -1,9 +1,9 @@
 import numpy as np
 
-from sample_db_setup import find_address
+from drmxlt_MOF.Binary_reaction.sample_db_setup import find_address
 from Locator import *
-#TODO move heaterblock locations to Locator.py from Locator_supplemental.py
-from Locator_supplemental import heater_block_0, heater_block_1, heater_block_2, heater_block_3, heater_block_4, heater_block_5, heater_block_6, heater_block_7
+#TODO move reactor locations to Locator.py from Locator_supplemental.py
+from Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
 
 
 
@@ -112,22 +112,22 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
       system_db["clamp_status"] = "Open"
 
 
-  if source[0] == 4: # if sample is in a heater block
-    #check if heater block hat is off
-    hat = system_db['heater_block'][source[1]]["Hat Status"]
+  if source[0] == 4: # if sample is in a reactor
+    #check if reactor hat is off
+    hat = system_db['reactor'][source[1]]["Hat Status"]
     test1 = hat == "Off"
     #TODO take the hat off
     #TODO each position has an indepenedent hat
 
     #check if the tempearture is low enough
 
-    temp = system_db['heater_block'][source[1]]["Temperature"]
+    temp = system_db['reactor'][source[1]]["Temperature"]
     test2 = temp < hot_load_temperature_threshold
 
-    heater_ready = test1 and test2
+    reactor_ready = test1 and test2
 
-    if heater_ready == False:
-      raise Exception("Heater block is not ready")
+    if reactor_ready == False:
+      raise Exception("reactor is not ready")
 
   #Check destination readiness
   if destination[0] == 1: #If destination is in the vial rack
@@ -187,24 +187,24 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
       c.open_clamp()
       system_db["clamp_status"] = "Open"
 
-  if destination[0] == 4: #If destination is in a heater block
-    #check if heater block hat is off
-    hat = system_db['heater_block'][destination[1]]["Hat Status"]
+  if destination[0] == 4: #If destination is in a reactor
+    #check if reactor hat is off
+    hat = system_db['reactor'][destination[1]]["Hat Status"]
     test1 = hat == "Off"
 
     #check if the tempearture is low enough
-    temp = system_db['heater_block'][destination[1]]["Temperature"]
+    temp = system_db['reactor'][destination[1]]["Temperature"]
     test2 = temp < hot_load_temperature_threshold 
 
-    heater_ready = test1 and test2
+    reactor_ready = test1 and test2
 
-    if heater_ready == False:
-      raise Exception("Heater block is not ready")
+    if reactor_ready == False:
+      raise Exception("reactor is not ready")
 
     #check if position is occupied
-    occupancy = system_db["heater_block"][destination[1]][destination[2]]["Assignment"]
+    occupancy = system_db["reactor"][destination[1]][destination[2]]["Assignment"]
     if occupancy != "Empty":
-      raise Exception(f"Heater block is occupied with {occupancy}")
+      raise Exception(f"reactor is occupied with {occupancy}")
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
@@ -242,57 +242,57 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
     system_db['gripper_status'] = "Closed"
     sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-  if source[0] == 4: #If sample is in a heater block
-    if source[1] == 0: #If sample is in heater block 0
-      c.goto_safe(heater_block_0[source[2]])
+  if source[0] == 4: #If sample is in a reactor
+    if source[1] == 0: #If sample is in reactor 0
+      c.goto_safe(reactor_0[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-    elif source[1] == 1: #If sample is in heater block 1
-      c.goto_safe(heater_block_1[source[2]])
+    elif source[1] == 1: #If sample is in reactor 1
+      c.goto_safe(reactor_1[source[2]])
       c.close_gripper()
       system_db['gripper_status']
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-    elif source[1] == 2: #If sample is in heater block 2
-      c.goto_safe(heater_block_2[source[2]])
+    elif source[1] == 2: #If sample is in reactor 2
+      c.goto_safe(reactor_2[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-    elif source[1] == 3: #If sample is in heater block 3
-      c.goto_safe(heater_block_3[source[2]])
+    elif source[1] == 3: #If sample is in reactor 3
+      c.goto_safe(reactor_3[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-    elif source[1] == 4: #If sample is in heater block 4
-      c.goto_safe(heater_block_4[source[2]])
+    elif source[1] == 4: #If sample is in reactor 4
+      c.goto_safe(reactor_4[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-    elif source[1] == 5: #If sample is in heater block 5
-      c.goto_safe(heater_block_5[source[2]])
+    elif source[1] == 5: #If sample is in reactor 5
+      c.goto_safe(reactor_5[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-    elif source[1] == 6: #If sample is in heater block 6
-      c.goto_safe(heater_block_6[source[2]])
+    elif source[1] == 6: #If sample is in reactor 6
+      c.goto_safe(reactor_6[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
-    elif source[1] == 7: #If sample is in heater block 7
-      c.goto_safe(heater_block_7[source[2]])
+    elif source[1] == 7: #If sample is in reactor 7
+      c.goto_safe(reactor_7[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     else:
-      raise Exception("Invalid heater block location")
+      raise Exception("Invalid reactor location")
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid source location for a sample")
@@ -326,51 +326,51 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
     system_db['gripper_status'] = "Open"
     sample_db[Sample_ID]["Address"] = np.array([3, 0, 0]) #tell sample_db that it's in the clamp
 
-  if destination[0] == 4: #If destination is in a heater block
-    if destination[1] == 0: #If destination is heater block 0
-      c.goto_safe(heater_block_0[destination[2]])
+  if destination[0] == 4: #If destination is in a reactor
+    if destination[1] == 0: #If destination is reactor 0
+      c.goto_safe(reactor_0[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
-      sample_db[Sample_ID]["Address"] = np.array([4, 0, destination[2]]) #tell sample_db that it's in the heater block
+      sample_db[Sample_ID]["Address"] = np.array([4, 0, destination[2]]) #tell sample_db that it's in the reactor
 
-    elif destination[1] == 1: #If destination is heater block 1
-      c.goto_safe(heater_block_1[destination[2]])
+    elif destination[1] == 1: #If destination is reactor 1
+      c.goto_safe(reactor_1[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
-      sample_db[Sample_ID]["Address"] = np.array([4, 1, destination[2]]) #tell sample_db that it's in the heater block
+      sample_db[Sample_ID]["Address"] = np.array([4, 1, destination[2]]) #tell sample_db that it's in the reactor
 
-    elif destination[1] == 2: #If destination is heater block 2
-      c.goto_safe(heater_block_2[destination[2]])
+    elif destination[1] == 2: #If destination is reactor 2
+      c.goto_safe(reactor_2[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
-      sample_db[Sample_ID]["Address"] = np.array([4, 2, destination[2]]) #tell sample_db that it's in the heater block
+      sample_db[Sample_ID]["Address"] = np.array([4, 2, destination[2]]) #tell sample_db that it's in the reactor
 
-    elif destination[1] == 3: #If destination is heater block 3
-      c.goto_safe(heater_block_3[destination[2]])
+    elif destination[1] == 3: #If destination is reactor 3
+      c.goto_safe(reactor_3[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
-      sample_db[Sample_ID]["Address"] = np.array([4, 3, destination[2]]) #tell sample_db that it's in the heater block
+      sample_db[Sample_ID]["Address"] = np.array([4, 3, destination[2]]) #tell sample_db that it's in the reactor
 
-    elif destination[1] == 4: #If destination is heater block 4
-      c.goto_safe(heater_block_4[destination[2]])
+    elif destination[1] == 4: #If destination is reactor 4
+      c.goto_safe(reactor_4[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
-      sample_db[Sample_ID]["Address"] = np.array([4, 4, destination[2]]) #tell sample_db that it's in the heater block
+      sample_db[Sample_ID]["Address"] = np.array([4, 4, destination[2]]) #tell sample_db that it's in the reactor
 
-    elif destination[1] == 5: #If destination is heater block 5
-      c.goto_safe(heater_block_5[destination[2]])
+    elif destination[1] == 5: #If destination is reactor 5
+      c.goto_safe(reactor_5[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
-      sample_db[Sample_ID]["Address"] = np.array([4, 5, destination[2]]) #tell sample_db that it's in the heater block
+      sample_db[Sample_ID]["Address"] = np.array([4, 5, destination[2]]) #tell sample_db that it's in the reactor
 
-    elif destination[1] == 6: #If destination is heater block 6
-      c.goto_safe(heater_block_6[destination[2]])
+    elif destination[1] == 6: #If destination is reactor 6
+      c.goto_safe(reactor_6[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
-      sample_db[Sample_ID]["Address"] = np.array([4, 6, destination[2]]) #tell sample_db that it's in the heater block
+      sample_db[Sample_ID]["Address"] = np.array([4, 6, destination[2]]) #tell sample_db that it's in the reactor
 
     else:
-      raise Exception("Invalid heater block location")
+      raise Exception("Invalid reactor location")
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
