@@ -1,5 +1,5 @@
 
-from Locator import *
+from drmxlt_MOF.Locator import *
 #TODO: Change add the reactor locations to Locator.py
 
 reactor_0 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]

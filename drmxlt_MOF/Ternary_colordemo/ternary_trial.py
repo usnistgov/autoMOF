@@ -1,17 +1,20 @@
+import sys
+import os
 
+sys.path.append(os.getcwd() + '/..')
 
 from north import NorthC9  # import the class to communicate with the C9 controller
 
 
-from ..system_db_setup import system_db
+from drmxlt_MOF.system_db_setup import system_db
 from sample_db_setup import sample_db
 from fluid_trakcing import fluid_db
 
-from ..unit_operation import Add_fluids
-from ..moving_vials import Move_Sample
-from ..votex import vortex
-from ..im_proc import get_ave_color
-from north_simple_camera import SimpleCamera
+from drmxlt_MOF.unit_operation import Add_fluids
+from drmxlt_MOF.moving_vials import Move_Sample
+from drmxlt_MOF.votex import vortex
+from drmxlt_MOF.im_proc import get_ave_color
+from drmxlt_MOF.north_simple_camera import SimpleCamera
 
 
 c9 = NorthC9('A',network_serial="AU06D2C0") #Initialize the robot controller

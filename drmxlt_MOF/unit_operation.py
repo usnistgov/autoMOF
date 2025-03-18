@@ -1,11 +1,11 @@
 import time
 import numpy as np
 
-from drmxlt_MOF.Binary_reaction.sample_db_setup import find_compositions
-from drmxlt_MOF.Binary_reaction.resource_checking import exp_fluid_resource_check
-from moving_vials import Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample
-from fluid_dispensing import Fluid_dispense
-from dummy_c9 import tare_balance
+from drmxlt_MOF.Ternary_colordemo.sample_db_setup import find_compositions
+from drmxlt_MOF.Ternary_colordemo.resource_checking import exp_fluid_resource_check
+from drmxlt_MOF.moving_vials import Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample
+from drmxlt_MOF.fluid_dispensing import Fluid_dispense
+from drmxlt_MOF.dummy_c9 import tare_balance
 
 
 def Add_fluids(Sample_ID, c, system_db, sample_db, fluid_db, new_sample= True):

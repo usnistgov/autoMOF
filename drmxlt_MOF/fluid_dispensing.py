@@ -1,6 +1,6 @@
 
-from pipette_traking import get_next_pipette_tip
-from Locator_supplemental import zip_to_locator, zip_to_pipette_z
+from drmxlt_MOF.pipette_traking import get_next_pipette_tip
+from drmxlt_MOF.Locator_supplemental import zip_to_locator, zip_to_pipette_z
 
 
 

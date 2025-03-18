@@ -1,9 +1,9 @@
 import numpy as np
 
-from drmxlt_MOF.Binary_reaction.sample_db_setup import find_address
-from Locator import *
+# from drmxlt_MOF.Binary_reaction.sample_db_setup import find_address
+from drmxlt_MOF.Locator import *
 #TODO move reactor locations to Locator.py from Locator_supplemental.py
-from Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
+from drmxlt_MOF.Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
 
 
 
@@ -86,7 +86,8 @@ def Violent_Action_Precheck(c):
 
 #Pre Move checking to make sure the move is possible at this time:
 def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_temperature_threshold = 1000.0):
-  source = find_address(Sample_ID)
+#   source = find_address(Sample_ID)
+  source = sample_db[Sample_ID]["Address"]
 
   if all(source == destination): #If the sample is already there, do nothing
     return True

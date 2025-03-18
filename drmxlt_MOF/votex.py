@@ -1,7 +1,7 @@
 
 
 
-from Locator import *
+from drmxlt_MOF.Locator import *
 
 
 

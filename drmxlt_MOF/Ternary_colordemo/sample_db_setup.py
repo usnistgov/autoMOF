@@ -1,6 +1,6 @@
 import numpy as np
 
-from ternary_composition_utils import random_ternary_composition
+from drmxlt_MOF.ternary_composition_utils import random_ternary_composition
 
 # Generate some sample names
 num_samples = 3
