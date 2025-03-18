@@ -1,8 +1,6 @@
 import numpy as np
 
-import mpltern
-from mpltern.datasets import get_triangular_grid
-
+import itertools
 
 def compositions_3d(compositions_2d):
     """Converting the compostions from the 2D triangle to a 3D simplex"""
@@ -56,18 +54,20 @@ def compositions_2d(compositions_3d):
 
       return points_2d
 
+def generate_simplex_grid(end_members, point_per_side, prec = 1e-6):
+  t = np.linspace(1, 0, point_per_side)
+  points = []
+  for tmp in itertools.product(t, repeat=end_members):
+      if abs(sum(tmp) - 1.0) > prec:
+          continue
+      points.append(tmp)
+  points = np.array(points)
+  return points
+
 def generate_ternary_grid(points_per_side):
     #Set-up the domain of ternary components
-    A_mesh, B_mesh, C_mesh = get_triangular_grid(points_per_side)
-
-    #reshape to collumn vectors
-    A_mesh = A_mesh.reshape(-1, 1)
-    B_mesh = B_mesh.reshape(-1, 1)
-    C_mesh = C_mesh.reshape(-1, 1)
-
-    #concatenate into n x 3 matrix
-    compositions = np.hstack([A_mesh, B_mesh, C_mesh])
-
+    compositions = generate_simplex_grid(3, points_per_side)
+    
     #vector of indexes
     domain_index = np.arange(compositions.shape[0])
 

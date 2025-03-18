@@ -691,7 +691,7 @@
       "ik_soln": 0,
       "reference": false,
       "linked_parent_name": null,
-      "rotation": 1.57,
+      "rotation": 0,
       "n": [
         8,
         6,
@@ -715,7 +715,7 @@
       "ik_soln": 0,
       "reference": false,
       "linked_parent_name": null,
-      "rotation": 1.57,
+      "rotation": 0,
       "n": [
         8,
         6,

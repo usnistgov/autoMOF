@@ -8,7 +8,10 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db):
   #Genaric pipetting function to despense an arbitrary volume of fluid from 
   # arbitrary (and valid) source to an arbitrary (and valid) destination
 
-  if source == destination:
+  print(type(source))
+  print(type(destination))
+
+  if all(source == destination):
     raise Exception("Source and destination are the same")
 
   # Can only pipette to and from the vial rack, the clamp, and the reactors
@@ -35,8 +38,8 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db):
   # So if the volume is more than 0.9 ml, dispense in 0.9 ml batches until it is less than that. 
   if vol > 0.9:
     remaining_vol = vol - 0.9
-    Pipette_Fluid(0.9, source, destination)
-    Pipette_Fluid(remaining_vol, source, destination)
+    Pipette_Fluid(fluid, 0.9, source, destination, c, fluid_db)
+    Pipette_Fluid(fluid, remaining_vol, source, destination, c, fluid_db)
 
   else:
     c.move_pump(0,0)
@@ -103,7 +106,7 @@ def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db):
 
 
 
-def Fluid_dispense(fluid, exp_vol, fluid_db, destination):
+def Fluid_dispense(fluid, exp_vol, destination, c, fluid_db):
 
 
   fluid_address = fluid_db[fluid]["Address"]
@@ -113,8 +116,8 @@ def Fluid_dispense(fluid, exp_vol, fluid_db, destination):
   in_reactor = fluid_address[0] == 4
   test = in_vial_rack or in_clamp or in_reactor
   if test == True: #If the fluid is in the vial rack, clamp, or reactor
-    Pipette_Fluid(exp_vol, fluid_address, destination)
+    Pipette_Fluid(fluid, exp_vol, fluid_address, destination, c, fluid_db)
 
   elif fluid_address[0] == 5: #If the fluid is in the syringe pump
-    Syringe_Pump_Fluid(exp_vol, fluid_address)
+    Syringe_Pump_Fluid(fluid, exp_vol, fluid_address, c, fluid_db)
 

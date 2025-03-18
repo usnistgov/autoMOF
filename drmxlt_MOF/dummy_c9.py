@@ -12,6 +12,9 @@ class dummy_c9():
   def open_clamp(self):
     pass
 
+  def close_clamp(self):
+    pass
+
   def read_heater_block(self, heater_block_id):
     return 23.0
 
@@ -24,6 +27,14 @@ class dummy_c9():
   def close_gripper(self):
     pass
 
+  def uncap(self):
+    pass
+
+  def move_z(self, height):
+    pass
+  
+  def move_pump(self, rot, z):
+    pass
 
 def tare_balance(c):
     c.zero_scale()

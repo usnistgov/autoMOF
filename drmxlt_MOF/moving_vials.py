@@ -86,7 +86,6 @@ def Violent_Action_Precheck(c):
 
 #Pre Move checking to make sure the move is possible at this time:
 def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_temperature_threshold = 1000.0):
-#   source = find_address(Sample_ID)
   source = sample_db[Sample_ID]["Address"]
 
   if all(source == destination): #If the sample is already there, do nothing
@@ -214,7 +213,7 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
 
 
 def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
-  source = find_address(Sample_ID)
+  source = sample_db[Sample_ID]["Address"]
 
   #### Source #####
   if source[0] == 1: #If sample is in the vial rack
