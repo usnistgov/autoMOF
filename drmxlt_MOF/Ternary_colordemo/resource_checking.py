@@ -29,7 +29,9 @@ def exp_fluid_resource_check(Sample_ID, sample_db, fluid_db):
   if enough_contrast == False:
     #If there is still not enough constrat
     raise Exception("Not enough contrast")
-
+  
+  #Re-name the contrast with the assigned contrast
+  sample_db["Experiment Volumes (mL)"][assigned_contrast] = sample_db["Experiment Volumes (mL)"]["Contrast"]
 
   #Check precusors
   precursor_1_vol = exp_volumes["Precursor 1"]
@@ -54,4 +56,4 @@ def exp_fluid_resource_check(Sample_ID, sample_db, fluid_db):
                        "Precursor 2": precursor_2_needed,
                        "Precursor 3": precursor_3_needed}
 
-  return fluid_assignments
+  return fluid_assignments, sample_db

@@ -1,15 +1,12 @@
 
 from drmxlt_MOF.pipette_traking import get_next_pipette_tip
-from drmxlt_MOF.Locator_supplemental import zip_to_locator, zip_to_pipette_z
+from drmxlt_MOF.Locator_supplemental import zip_to_locator, zip_to_pipette_z, waste_disposal_offset
 
 
 
-def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db):
+def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db, system_db, new_pipette_tip = True):
   #Genaric pipetting function to despense an arbitrary volume of fluid from 
   # arbitrary (and valid) source to an arbitrary (and valid) destination
-
-  print(type(source))
-  print(type(destination))
 
   if all(source == destination):
     raise Exception("Source and destination are the same")
@@ -33,17 +30,18 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db):
   if test2 == False:
     raise Exception("Invalid destination location for pipetting")
 
-
+  if new_pipette_tip == True:
+    get_next_pipette_tip(system_db, c)
   # Pipete tip can only hold 1 ml at a time
   # So if the volume is more than 0.9 ml, dispense in 0.9 ml batches until it is less than that. 
   if vol > 0.9:
     remaining_vol = vol - 0.9
-    Pipette_Fluid(fluid, 0.9, source, destination, c, fluid_db)
-    Pipette_Fluid(fluid, remaining_vol, source, destination, c, fluid_db)
+    Pipette_Fluid(fluid, 0.9, source, destination, c, fluid_db, system_db, False)
+    Pipette_Fluid(fluid, remaining_vol, source, destination, c, fluid_db, system_db, False)
 
   else:
     c.move_pump(0,0)
-    get_next_pipette_tip()
+    
 
     source_location = zip_to_locator(source) #zip code to north location object
     source_zs = zip_to_pipette_z(source) #get the draw, dispense, and safe pipette arm z values for the source
@@ -64,7 +62,7 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db):
     destination_location = zip_to_locator(destination) # zip code to noth location object
     destination_zs = zip_to_pipette_z(destination) #get the draw, dispense, and safe pipette arm z values for the destination
 
-    c.goto_safe(destination) #Move the arm above the destination location
+    c.goto_safe(destination_location) #Move the arm above the destination location
     c.move_z(destination_zs[1]) #Move the pipette to dispense height
 
     c.set_pump_valve(0, c.PUMP_VALVE_RIGHT) # Set the pump valve dispense fluid
@@ -77,9 +75,9 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db):
 
 
 
-def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db):
+def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db, waste = False):
   # Genaric function for dispensing fluid from the Syringe pumps
-  # destination is assumed to be the clamp
+  # destination is assumed to be the clamp, unless despensing to waste for purging lines
 
   if source[0] != 5:
     raise Exception("Invalid source location for syringe pump")
@@ -87,11 +85,19 @@ def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db):
   pump_num = source[2] # Get the pump number from the zip code
   syringe_vol = c.pumps[pump_num]['volume'] # Get the volume of that syringe pump
 
+  carousel_pos = zip_to_locator(source)
+
   if vol > syringe_vol:
-    Syringe_Pump_Fluid(syringe_vol, source)
-    Syringe_Pump_Fluid(vol-syringe_vol, source)
+    Syringe_Pump_Fluid(fluid, syringe_vol, source, c, fluid_db)
+    Syringe_Pump_Fluid(fluid, vol-syringe_vol, source, c, fluid_db)
 
   else:
+    if waste == True:
+      c.move_carousel(carousel_pos[0] + waste_disposal_offset, carousel_pos[1])
+
+    else:
+      c.move_carousel(carousel_pos[0] + waste_disposal_offset, carousel_pos[1])
+
     c.set_pump_valve(pump_num, c.PUMP_VALVE_RIGHT) # Set the pump valve draw fluid
     c.aspirate_ml(pump_num, vol) #Draw up fluid
 
@@ -106,18 +112,39 @@ def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db):
 
 
 
-def Fluid_dispense(fluid, exp_vol, destination, c, fluid_db):
+def Fluid_dispense(fluid, exp_vol, destination, c, fluid_db, system_db):
 
 
   fluid_address = fluid_db[fluid]["Address"]
+
+  if fluid_db[fluid]["Purged"] == False:
+    Purge_fluid(fluid, c, fluid_db) 
 
   in_vial_rack = fluid_address[0] == 1
   in_clamp = fluid_address[0] == 3
   in_reactor = fluid_address[0] == 4
   test = in_vial_rack or in_clamp or in_reactor
   if test == True: #If the fluid is in the vial rack, clamp, or reactor
-    Pipette_Fluid(fluid, exp_vol, fluid_address, destination, c, fluid_db)
+    Pipette_Fluid(fluid, exp_vol, fluid_address, destination, c, fluid_db, system_db)
 
   elif fluid_address[0] == 5: #If the fluid is in the syringe pump
     Syringe_Pump_Fluid(fluid, exp_vol, fluid_address, c, fluid_db)
 
+def Purge_fluid(fluid, c, fluid_db):
+  fluid_address = fluid_db[fluid]["Address"]
+
+  purge_vol = fluid_db[fluid]["Purg Vol."]
+  in_vial_rack = fluid_address[0] == 1
+  in_clamp = fluid_address[0] == 3
+  in_reactor = fluid_address[0] == 4
+  test = in_vial_rack or in_clamp or in_reactor
+  if test == True: #If the fluid is in the vial rack, clamp, or reactor
+    # Pipette_Fluid(fluid, purge_vol, fluid_address, destination, c, fluid_db, system_db)
+    #Pipette tips don't need to be purged
+    pass
+
+  elif fluid_address[0] == 5: #If the fluid is in the syringe pump
+    #Purge lines by dispensing to waste
+    Syringe_Pump_Fluid(fluid, purge_vol, fluid_address, c, fluid_db, waste=True)
+    #Update fluid_db
+    fluid_db[fluid]["Purged"] = True

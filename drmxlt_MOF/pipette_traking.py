@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from drmxlt_MOF.Locator import *
+
 pipette_array = np.arange(0,48).reshape(-1,3).T #Array 0-48, 3x16, but rows are out of order.
 pipette_array = pipette_array[::-1, :] # Flip the ordering of the rows.
 pipette_array = np.flip(pipette_array, axis = 1) # Flip the ordering of the columns to match how they are layed out on the robot.
@@ -26,27 +28,22 @@ def fresh_pipette_rack(empty_pipette_indexes = []):
 
 
 
-def get_next_pipette_tip(pipette_order, pipette_array, fresh_pipettes):
+def get_next_pipette_tip(system_db, c):
     """Find the next available fresh pipette tip,
     go there grab it, and mark that it's being used."""
 
     #Mask off the used pipettes
-    mask = [x in pipette_array[fresh_pipettes == 1]  for x in pipette_order]
+    mask = [x in system_db["pipette_array"][system_db["fresh_pipettes"] == 1]  for x in system_db["pipette_order"]]
 
     #Find the next (as per the pipette_order) available fresh pipette
-    next_pipette = pipette_order[mask][0]
-    print(next_pipette)
-
+    next_pipette = system_db["pipette_order"][mask][0]
+    
     # #Pick up that pipette tip
-    # c.goto_safe(p_up[next_pipette])
-    # c.goto_safe(p_up_wp)
+    c.goto_safe(p_up[next_pipette])
+    c.goto_safe(p_up_wp)
 
     #Mark that that pipette tip index is used
-    fresh_pipettes[pipette_array == next_pipette] = 0
+    system_db["fresh_pipettes"][system_db["pipette_array"] == next_pipette] = 0
 
-    #Push the fresh pipette information to the database
-    #TODO
 
-    return fresh_pipettes
-
-fresh_pipette = fresh_pipette_rack()
+fresh_pipettes = fresh_pipette_rack()

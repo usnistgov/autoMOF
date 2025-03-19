@@ -15,16 +15,13 @@ from drmxlt_MOF.dummy_c9 import dummy_c9
 
 c9 = dummy_c9()
 
-# from drmxlt_MOF.experiments import Ternary_colordemo
-# from experiments import Ternary_colordemo
-
 example = Ternary_colordemo()
 
 # print(example.sample_db)
 # print("\n")
 # print(example.fluid_db)
 
-# print(system_db)
+print(system_db)
 
 list_of_samples = []
 for key in example.sample_db.keys():
@@ -33,11 +30,12 @@ for key in example.sample_db.keys():
 print(list_of_samples[0])
 # for sample in list_of_samples:
 #     Add_fluids(sample, c9, system_db, example)
+
 Add_fluids(list_of_samples[0], c9, system_db, example)
     
-print(example.sample_db)
-print("\n")
-print(example.fluid_db)
+# print(example.sample_db)
+# print("\n")
+# print(example.fluid_db)
 print("\n")
 print(system_db)
     

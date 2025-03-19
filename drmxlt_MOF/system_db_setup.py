@@ -8,7 +8,7 @@ system_db = {} # Container for information about the system
 
 system_db['pipette_array'] = pipette_array #An array of pipette indexes in the shape of how they are layed out on the robot
 system_db['pipette_order'] = pipette_order #A list of what order the pipettes should be used in
-system_db['fresh_pipette'] = fresh_pipette #An array of which pipettes are still fresh and which are used - in the shape of pipette_array
+system_db['fresh_pipettes'] = fresh_pipettes #An array of which pipettes are still fresh and which are used - in the shape of pipette_array
 
 system_db['vial_racks'] = ['rack_left', 'rack_right']
 system_db['vial_rack_left_array'] = vial_rack_left_array

@@ -56,10 +56,10 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
 
   #Dispense
   weighed_composition = {}
-  for key in fluid_assignments:
-    fluid = key
-    exp_vol = fluid_assignments[key]
-    Fluid_dispense(fluid, exp_vol, destination, c, experiment.fluid_db)
+  for fluid in experiment.sample_db[Sample_ID]["Fluid Order"]:
+
+    exp_vol = experiment.sample_db[Sample_ID]["Experiment Volumes (mL)"][fluid]
+    Fluid_dispense(fluid, exp_vol, destination, c, experiment.fluid_db, system_db)
     weighed_composition[fluid] = c.read_steady_scale() 
 
   experiment.sample_db[Sample_ID]["Weighed Composition (g)"] = weighed_composition

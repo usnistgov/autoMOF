@@ -2,6 +2,17 @@ class dummy_c9():
   def __init__(self):
     self.sonicator = True
     self.centrifuge = False
+    self.PUMP_VALVE_RIGHT = True
+    self.PUMP_VALVE_LEFT = False
+
+    self.pumps = {0 : {"volume" : 10},
+                  1 : {"volume" : 10},
+                  2 : {"volume" : 10},
+                  3 : {"volume" : 10},
+                  4 : {"volume" : 10},
+                  5 : {"volume" : 10},
+                  6 : {"volume" : 10},
+                  7 : {"volume" : 10}}
 
   def zero_scale(self):
     pass
@@ -21,6 +32,9 @@ class dummy_c9():
   def goto_safe(self, position):
     pass
 
+  def goto_xy_safe(self, position):
+    pass
+
   def open_gripper(self):
     pass
 
@@ -34,6 +48,21 @@ class dummy_c9():
     pass
   
   def move_pump(self, rot, z):
+    pass
+
+  def set_pump_valve(self, z, rot):
+    pass
+
+  def move_carousel(self, angle, z):
+    pass
+
+  def aspirate_ml(self, pump, vol):
+    pass
+
+  def dispense_ml(self, pump, vol):
+    pass
+
+  def delay(self, time):
     pass
 
 def tare_balance(c):

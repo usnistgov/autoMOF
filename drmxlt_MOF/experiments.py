@@ -98,8 +98,11 @@ class Ternary_colordemo(Experiment):
         then the remaining volume will be for the precusors.
         This experiment considers a ternary precusor composition.
         """
+        
 
         for key in list(self.sample_db.keys()):
+            #Specify the order to add the fluids
+            self.sample_db[key]["Fluid Order"] = ["Contrast", "Precursor 1", "Precursor 2", "Precursor 3" ]
 
             targetcomposition = self.sample_db[key]["TargetComposition"]
 
@@ -248,6 +251,10 @@ class Ternary_colordemo(Experiment):
         if enough_contrast == False:
             #If there is still not enough constrat
             raise Exception("Not enough contrast")
+        
+        #Re-name the contrast with the assigned contrast
+        self.sample_db[Sample_ID]["Experiment Volumes (mL)"][assigned_contrast] = self.sample_db[Sample_ID]["Experiment Volumes (mL)"].pop("Contrast")
+        self.sample_db[Sample_ID]['Fluid Order'] = [item.replace('Contrast', assigned_contrast) for item in self.sample_db[Sample_ID]['Fluid Order']]  
 
 
         #Check precusors
