@@ -21,7 +21,7 @@ example = Ternary_colordemo()
 # print("\n")
 # print(example.fluid_db)
 
-print(system_db)
+# print(system_db)
 
 list_of_samples = []
 for key in example.sample_db.keys():
@@ -32,10 +32,12 @@ print(list_of_samples[0])
 #     Add_fluids(sample, c9, system_db, example)
 
 Add_fluids(list_of_samples[0], c9, system_db, example)
+#TODO update system db for vial position as it's being moved around
+#TODO find an open spot on the vial rack to put the vial
     
-# print(example.sample_db)
-# print("\n")
-# print(example.fluid_db)
+print(example.sample_db)
+print("\n")
+print(example.fluid_db)
 print("\n")
 print(system_db)
-    
+
