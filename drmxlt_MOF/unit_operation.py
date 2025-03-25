@@ -89,8 +89,7 @@ class UnitOP_table():
   """Each sample will have a fixed set of unit ops in a particular order
   Each operation will occupy the Arm&Clamp for some amount of time.
     Arm&Clamp is considered one unit (to put the sample in the reactor we need the arm, but we also need the clamp so we can loosen the cap of the vial)
-  Each operation could also occupy the reactor
-  Each"""
+  Each operation could also occupy a reactor, the centrifuge, and or the sonicator for some amount of time."""
   
   Sample_IDs = []
   UnitOPs = []
@@ -115,7 +114,15 @@ class UnitOP_table():
   #Rules:
   # for each sample, unit ops must be done in this order ["Add_fluids", "Start_reaction", "Centrifuge_op", "Remove_supernatent"]
   # Arm&Clamp time must happen sequentially
-  # Reactor time can be in parallel  
+  # Reactor time can be in parallel up to 8 heater blocks, 4 spots each,
+  #   but all samples in a reactor must finish at the same time. 
+  # Centrifuge time can be in parallel with other ops
+  # Sonicator time can be in parallel with other ops 
+  
+  #Goal:
+  # find the order of operations that satisfies all the conditions, with the min total time. 
+
+
 
 
 

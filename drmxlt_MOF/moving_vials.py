@@ -221,14 +221,22 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
       c.goto_safe(rack_left[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
+      mask = system_db["vial_rack_left_array"] == source[2]
+      system_db["loaded_rack_left"][mask] = 0 #Tell the system_db that this position is not loaded
+      system_db["left_rack_assignments"][mask] = "Empty" #Tell the system_db that this position is empty
 
 
     elif source[1] == 1: #If sample is in the right vial rack
       c.goto_safe(rack_right[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
+      mask = system_db["vial_rack_right_array"] == source[2]
+      system_db["loaded_rack_right"][mask] = 0 #Tell the system_db that this position is not loaded
+      system_db["right_rack_assignments"][mask] = "Empty" #Tell the system_db that this position is empty
 
     else:
       raise Exception("Invalid rack location")
@@ -240,59 +248,71 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
     c.goto_safe(clamp)
     c.close_gripper()
     system_db['gripper_status'] = "Closed"
+    system_db["gripper_occupied"] = True
     sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
+    system_db["clamp_assignment"] = "Empty" #Tell the system_db that the clamp is now empty
 
   if source[0] == 4: #If sample is in a reactor
     if source[1] == 0: #If sample is in reactor 0
       c.goto_safe(reactor_0[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
+      
 
     elif source[1] == 1: #If sample is in reactor 1
       c.goto_safe(reactor_1[source[2]])
       c.close_gripper()
-      system_db['gripper_status']
+      system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     elif source[1] == 2: #If sample is in reactor 2
       c.goto_safe(reactor_2[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     elif source[1] == 3: #If sample is in reactor 3
       c.goto_safe(reactor_3[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     elif source[1] == 4: #If sample is in reactor 4
       c.goto_safe(reactor_4[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     elif source[1] == 5: #If sample is in reactor 5
       c.goto_safe(reactor_5[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     elif source[1] == 6: #If sample is in reactor 6
       c.goto_safe(reactor_6[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     elif source[1] == 7: #If sample is in reactor 7
       c.goto_safe(reactor_7[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
       sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
     else:
       raise Exception("Invalid reactor location")
+    system_db["reactor"][source[1]][source[2]]["Assignment"] = "Empty" #Tell the system_db that this reactor location is empty
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid source location for a sample")
@@ -304,13 +324,21 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
       c.goto_safe(rack_left[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([1, 0, destination[2]]) #tell sample_db that it's in the vial rack
+      mask = system_db["vial_rack_left_array"] == source[2]
+      system_db["loaded_rack_left"][mask] = 1 #Tell the system_db that this position is now loaded
+      system_db["left_rack_assignments"][mask] = Sample_ID #Tell the system_db that this position now has the sample
 
     elif destination[1] == 1: #If destination is in the right vial rack
       c.goto_safe(rack_right[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([1, 1, destination[2]]) #tell sample_db that it's in the vial rack
+      mask = system_db["vial_rack_right_array"] == source[2]
+      system_db["loaded_rack_right"][mask] = 1 #Tell the system_db that this position is now loaded
+      system_db["right_rack_assignments"][mask] = Sample_ID #Tell the system_db that this position now has the sample
 
     else:
       raise Exception("Invalid rack location")
@@ -318,59 +346,70 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
   if destination[0] == 2: #If destination is in the gripper
     c.close_gripper()
     system_db['gripper_status'] = "Closed"
+    system_db["gripper_occupied"] = True
     sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
   if destination[0] == 3: #If destination is in the clamp
     c.goto_safe(clamp)
     c.open_gripper()
     system_db['gripper_status'] = "Open"
+    system_db["gripper_occupied"] = False
     sample_db[Sample_ID]["Address"] = np.array([3, 0, 0]) #tell sample_db that it's in the clamp
+    system_db["clamp_assignment"] = Sample_ID #Tell the system_db that the clamp is now has the sample
 
   if destination[0] == 4: #If destination is in a reactor
     if destination[1] == 0: #If destination is reactor 0
       c.goto_safe(reactor_0[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 0, destination[2]]) #tell sample_db that it's in the reactor
 
     elif destination[1] == 1: #If destination is reactor 1
       c.goto_safe(reactor_1[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 1, destination[2]]) #tell sample_db that it's in the reactor
 
     elif destination[1] == 2: #If destination is reactor 2
       c.goto_safe(reactor_2[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 2, destination[2]]) #tell sample_db that it's in the reactor
 
     elif destination[1] == 3: #If destination is reactor 3
       c.goto_safe(reactor_3[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 3, destination[2]]) #tell sample_db that it's in the reactor
 
     elif destination[1] == 4: #If destination is reactor 4
       c.goto_safe(reactor_4[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 4, destination[2]]) #tell sample_db that it's in the reactor
 
     elif destination[1] == 5: #If destination is reactor 5
       c.goto_safe(reactor_5[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 5, destination[2]]) #tell sample_db that it's in the reactor
 
     elif destination[1] == 6: #If destination is reactor 6
       c.goto_safe(reactor_6[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 6, destination[2]]) #tell sample_db that it's in the reactor
 
     else:
       raise Exception("Invalid reactor location")
+    system_db["reactor"][destination[1]][destination[2]]["Assignment"] = Sample_ID #Tell the system_db that this reactor now has the sample
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")

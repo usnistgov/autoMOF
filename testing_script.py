@@ -8,6 +8,7 @@ import numpy as np
 from drmxlt_MOF.experiments import Ternary_colordemo
 from drmxlt_MOF.system_db_setup import system_db
 from drmxlt_MOF.unit_operation import Add_fluids
+from drmxlt_MOF.moving_vials import Move_Sample
 
 
 
@@ -32,8 +33,20 @@ print(list_of_samples[0])
 #     Add_fluids(sample, c9, system_db, example)
 
 Add_fluids(list_of_samples[0], c9, system_db, example)
-#TODO update system db for vial position as it's being moved around
+
 #TODO find an open spot on the vial rack to put the vial
+
+destination = np.array([3, 0, 0])
+Move_Sample(list_of_samples[0], destination, example.sample_db, system_db, c9)
+
+destination = np.array([4, 0, 0])
+Move_Sample(list_of_samples[0], destination, example.sample_db, system_db, c9)
+
+destination = np.array([1, 0, 0])
+Move_Sample(list_of_samples[0], destination, example.sample_db, system_db, c9)
+
+
+
     
 print(example.sample_db)
 print("\n")
