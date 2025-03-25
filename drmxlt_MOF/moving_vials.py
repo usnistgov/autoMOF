@@ -43,6 +43,57 @@ def assign_sample_to_vial(Sample_ID, sample_db, system_db):
 
   else:
     raise Exception(f"Sample {Sample_ID} already assigned {current_address}")
+  
+
+def find_open_vial_rack_addresses(system_db):
+  loaded_rack_left = system_db["loaded_rack_left"]
+  loaded_left_mask = np.array(loaded_rack_left == 0)
+  left_rack_assignments = system_db["left_rack_assignments"]
+  left_assignment_mask = np.array(left_rack_assignments == "Empty")
+
+  left_truth_test = loaded_left_mask == left_assignment_mask
+  if not left_truth_test.all():
+    raise Exception("System Database vial rack loading and assignments out of sync")
+  
+  if left_assignment_mask.any():
+    #Find all the free positions in the left rack
+    free_left_positions = system_db['vial_rack_left_array'][left_assignment_mask].reshape(-1,1)
+
+    free_rack1 = np.ones_like(free_left_positions) #Zipcode 1, _, _ for vial racks
+    free_left_rack = np.zeros_like(free_left_positions)# Zipcode 1, 0, _ for left vial rack
+
+    #Concatentate for all the zipcodes in the left rack
+    free_left_addresses = np.concatenate((free_rack1, free_left_rack, free_left_positions), axis = 1)
+
+  else:
+    free_left_addresses = np.empty((0,3))
+
+  loaded_rack_right = system_db["loaded_rack_right"]
+  loaded_right_mask = loaded_rack_right == 0
+  right_rack_assignments = system_db["right_rack_assignments"]
+  right_assignment_mask = right_rack_assignments == "Empty"
+
+  right_truth_test = loaded_right_mask == right_assignment_mask
+  if not right_truth_test.all():
+    raise Exception("System Database vial rack loading and assignments out of sync")
+  
+  if right_assignment_mask.any():
+    #Find all the free positions in the right rack
+    free_right_positions = system_db['vial_rack_right_array'][right_assignment_mask].reshape(-1,1)
+
+    free_rack2 = np.ones_like(free_right_positions) #Zipcode 1, _, _ for vial racks
+    free_right_rack = np.zeros_like(free_right_positions)# Zipcode 1, 0, _ for right vial rack
+
+    #Concatentate for all the zipcodes in the right rack
+    free_right_addresses = np.concatenate((free_rack2, free_right_rack, free_right_positions), axis = 1)
+
+  else:
+    free_right_addresses = np.empty((0,3))
+
+  #Concatenate the free addresses from both racks
+  free_addresses = np.concatenate((free_left_addresses, free_right_addresses), axis = 0).astype(int)
+
+  return free_addresses
 
 
 
