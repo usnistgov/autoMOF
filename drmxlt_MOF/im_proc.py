@@ -32,6 +32,18 @@ def get_ave_color(img):
 
     return avg_color
 
+
+def measure_color(Sample_ID, sample_db):
+    cam = SimpleCamera(0)
+    pic = cam.capture()
+
+    cropped, original = crop_img(pic.img, *[500, 130, 840, 375])
+
+    avg_color = get_ave_color(cropped)
+
+    sample_db[Sample_ID]["Average Color"] = avg_color
+ 
+
 if __name__ == "__main__":
     cam = SimpleCamera(0)
 

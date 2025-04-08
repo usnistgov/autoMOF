@@ -1,7 +1,7 @@
 import numpy as np
 
 # from drmxlt_MOF.ternary_composition_utils import random_ternary_composition
-from .ternary_composition_utils import random_ternary_composition
+from .ternary_composition_utils import random_ternary_composition, generate_simplex_grid
 
 class Experiment():
     """"Base class for all experiments"""
@@ -283,3 +283,117 @@ class Ternary_colordemo(Experiment):
         return fluid_assignments
 
 
+class Cu_BTC(Experiment):
+
+
+    def __init__(self):
+        super().__init__()
+        self.initialize_target_compositions()
+        self.define_experiment_conditions()
+        self.initialize_fluid_db()
+
+    def initialize_target_compositions(self): 
+
+        grid_of_compositions = generate_simplex_grid(2, 1000)
+
+        compositions = np.random.permutation(grid_of_compositions)[:self.initial_samples]
+
+        for key, comp in zip(self.sample_db.keys(), compositions):
+            self.sample_db[key]["TargetComposition"] = comp
+            self.sample_db[key]["TargetConcentration (mol/L)"] = 0.05
+
+
+    def define_experiment_conditions(self, total_exp_vol = 10):
+
+            """ In this example experiment, we'll use concentrated precursors solution, and a solvent mixture
+            """
+            
+
+            for key in list(self.sample_db.keys()):
+                #Specify the order to add the fluids
+                self.sample_db[key]["Fluid Order"] = ["Cu Solution", "BTC Solution", "Solvent Mixture"]
+
+                targetcomposition = self.sample_db[key]["TargetComposition"]
+                target_concentration = self.sample_db[key]["TargetConcentration (mol/L)"]
+
+                exp_volumes = {}
+
+                #Precusors
+                precursor_1_vol = targetcomposition[0] / self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
+                precursor_2_vol = targetcomposition[1] / self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
+
+                #TODO Find the remaining solvent to add!!!!!!
+                solvent_vol = (1/target_concentration) - precursor_1_vol - precursor_2_vol
+                ### ^^^^^^^^^^^^^^ #################
+
+
+                exp_volumes["Cu Solution"] = precursor_1_vol
+                exp_volumes["BTC Solution"] = precursor_2_vol
+                exp_volumes["Solvent Mixture"] = solvent_vol
+
+                #Add that info to sample database
+
+                self.sample_db[key]["Experiment Volumes (mL)"] = exp_volumes
+
+    def find_compositions(self, Sample_ID):
+        return self.sample_db[Sample_ID]["TargetComposition"]
+    
+
+    def initalize_fluid_db(self):
+
+        self.fluid_db["Cu Solution"] = {"Fluid Name": "Cu Solution",
+                                "Volume (mL)": 300,
+                                "Address": np.array([5, 1, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
+                                "Purged": False,
+                                "Purg Vol.": 10,
+                                "Empty threshold": 10, # mL
+                                "Concentration (mol/L)": 0.1
+                                }
+        
+        self.fluid_db["BTC Solution"] = {"Fluid Name": "BTC Solution",
+                                "Volume (mL)": 300,
+                                "Address": np.array([5, 2, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
+                                "Purged": False,
+                                "Purg Vol.": 10,
+                                "Empty threshold": 10, # mL
+                                "Concentration (mol/L)": 0.1
+                                }
+
+        self.fluid_db["Solvent Mixture"] = {"Fluid Name": "2:1 Ethyline Glycol:Water",
+                                "Volume (mL)": 300,
+                                "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index 3, splitter valve position 0
+                                "Purged": False,
+                                "Purg Vol.": 10,
+                                "Empty threshold": 10 # mL
+                                }
+
+
+
+    
+    def exp_fluid_resource_check(self, Sample_ID):
+        #Read the target volumes of eaach fluid for this sample
+        exp_volumes = self.sample_db[Sample_ID]["Experiment Volumes (mL)"]
+
+        #Check precusors
+        precursor_1_vol = exp_volumes["Cu Solution"]
+        precursor_2_vol = exp_volumes["BTC Solution"]
+        precursor_3_vol = exp_volumes["Solvent Mixture"]
+
+        enough_precursor_1, precursor_1_needed = self.single_fluid_check(precursor_1_vol, 'Cu Solution')
+        if enough_precursor_1 == False:
+            raise Exception("Not enough precursor 1")
+
+        enough_precursor_2, precursor_2_needed = self.single_fluid_check(precursor_2_vol, 'BTC Solution')
+        if enough_precursor_2 == False:
+            raise Exception("Not enough precursor 2")
+        
+        enough_precursor_3, precursor_3_needed = self.single_fluid_check(precursor_3_vol, 'Solvent Mixture')
+        if enough_precursor_3 == False:
+            raise Exception("Not enough precursor 2")
+
+
+        fluid_assignments = {"Cu Solution": precursor_1_needed, 
+                            "BTC Solution": precursor_2_needed,
+                            "Solvent Mixture": precursor_3_needed}
+
+        return fluid_assignments
