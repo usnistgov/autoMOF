@@ -17,6 +17,7 @@ from drmxlt_MOF.dummy_c9 import dummy_c9
 c9 = dummy_c9()
 
 example = Ternary_colordemo()
+#TODO: push databases to Cordra
 
 # print(example.sample_db)
 # print("\n")
@@ -34,7 +35,6 @@ print(list_of_samples[0])
 
 Add_fluids(list_of_samples[0], c9, system_db, example)
 
-#TODO find an open spot on the vial rack to put the vial
 open_vial_positions = find_open_vial_rack_addresses(system_db)
 print("checking open positions at the end of Add_fluids")
 print(open_vial_positions)

@@ -63,6 +63,7 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
     weighed_composition[fluid] = c.read_steady_scale() 
 
   experiment.sample_db[Sample_ID]["Weighed Composition (g)"] = weighed_composition
+  #TODO: push sample and fluid dbs to Cordra
 
   #Re-cap
   c.close_clamp()

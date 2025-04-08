@@ -367,6 +367,8 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid source location for a sample")
+  
+  #TODO: push sample db to Cordra
 
   #### Destination #####
 
@@ -464,3 +466,5 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
+  
+  #TODO: push sample db to Cordra
