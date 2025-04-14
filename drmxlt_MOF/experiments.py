@@ -359,7 +359,7 @@ class Cu_BTC(Experiment):
                                 "Concentration (mol/L)": 0.1
                                 }
 
-        self.fluid_db["Solvent Mixture"] = {"Fluid Name": "2:1 Ethyline Glycol:Water",
+        self.fluid_db["Solvent Mixture"] = {"Fluid Name": "Water",
                                 "Volume (mL)": 300,
                                 "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index 3, splitter valve position 0
                                 "Purged": False,

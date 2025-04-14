@@ -108,7 +108,7 @@ def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
   system_db["reactor"][reactor_id]["Set Temperature (C)"] = target_temperature
 
 
-def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp = 20):
+def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp = 10):
   reactor_id = destination[1]
   target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"]
   reaction_time = experiment.sample_db[Sample_ID]["Reaction Time (min)"]
