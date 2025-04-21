@@ -289,52 +289,108 @@ class Cu_BTC(Experiment):
     def __init__(self):
         super().__init__()
         self.initialize_target_compositions()
-        self.define_experiment_conditions()
         self.initialize_fluid_db()
+        self.define_experiment_conditions()
+        
 
     def initialize_target_compositions(self): 
+        min_Cu_concentration = 0.5 #mol/L
+        max_Cu_concentration = 2.0 #mol/L
 
-        grid_of_compositions = generate_simplex_grid(2, 1000)
-
-        compositions = np.random.permutation(grid_of_compositions)[:self.initial_samples]
-
-        for key, comp in zip(self.sample_db.keys(), compositions):
-            self.sample_db[key]["TargetComposition"] = comp
-            self.sample_db[key]["TargetConcentration (mol/L)"] = 0.05
+        Cu_concentrations = np.random.uniform(min_Cu_concentration, max_Cu_concentration, self.initial_samples)
+        
+        for key, Cu_conc in zip(self.sample_db.keys(), Cu_concentrations):
+            self.sample_db[key]["Target Cu Concentration (mol/L)"] = Cu_conc
+            self.sample_db[key]["Target BTC Concentration (mol/L)"] = 0.2
 
 
-    def define_experiment_conditions(self, total_exp_vol = 10):
+    def define_experiment_conditions(self):
 
-            """ In this example experiment, we'll use concentrated precursors solution, and a solvent mixture
+            """ In this example experiment, we'll use concentrated precursors solution and a solvent mixture.
+            We'll dispense the concentrated stock and dilute in the vial to the desired concentration
             """
             
 
             for key in list(self.sample_db.keys()):
                 #Specify the order to add the fluids
-                self.sample_db[key]["Fluid Order"] = ["Cu Solution", "BTC Solution", "Solvent Mixture"]
-
-                targetcomposition = self.sample_db[key]["TargetComposition"]
-                target_concentration = self.sample_db[key]["TargetConcentration (mol/L)"]
+                self.sample_db[key]["Fluid Order"] = ["Cu Solution", "Solvent Mixture", "BTC Solution" ]
 
                 exp_volumes = {}
+                
+                target_BTC_concentration = self.sample_db[key]["Target BTC Concentration (mol/L)"]
+                target_Cu_concentration = self.sample_db[key]["Target Cu Concentration (mol/L)"]
 
-                #Precusors
-                precursor_1_vol = targetcomposition[0] / self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
-                precursor_2_vol = targetcomposition[1] / self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
+                stock_BTC_concentration = self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
+                stock_Cu_concentration = self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
 
-                #TODO Find the remaining solvent to add!!!!!!
-                solvent_vol = (1/target_concentration) - precursor_1_vol - precursor_2_vol
-                ### ^^^^^^^^^^^^^^ #################
+                total_BTC_vol = 5 #mL
+                total_Cu_vol = 5 #mL
+                
+                BTC_dispense_vol = total_BTC_vol*target_BTC_concentration/stock_BTC_concentration
+                Cu_dispense_vol = total_Cu_vol*target_Cu_concentration/stock_Cu_concentration
+
+                solvent_to_dilute_BTC = total_BTC_vol - BTC_dispense_vol
+                solvent_to_dilute_Cu = total_Cu_vol - Cu_dispense_vol
+
+                solvent_dispense_vol = solvent_to_dilute_BTC + solvent_to_dilute_Cu 
 
 
-                exp_volumes["Cu Solution"] = precursor_1_vol
-                exp_volumes["BTC Solution"] = precursor_2_vol
-                exp_volumes["Solvent Mixture"] = solvent_vol
+                exp_volumes["BTC Solution"] = BTC_dispense_vol
+                exp_volumes["Cu Solution"] = Cu_dispense_vol
+                exp_volumes["Solvent Mixture"] = solvent_dispense_vol
 
                 #Add that info to sample database
 
                 self.sample_db[key]["Experiment Volumes (mL)"] = exp_volumes
+    
+    def add_new_sample(self, Cu_concentrations):
+        """This function will add new samples to the existing sample database"""
 
+        #Find existing sample codes
+        existing_codes = []
+        for key in self.sample_db.keys():
+            existing_codes.append(self.sample_db[key]["Sample ID"])
+
+        for Cu_conc in Cu_concentrations:
+            code = self.generate_sample_codes(existing_codes)
+            address = np.zeros(shape=(1,3), dtype= int)
+
+            self.sample_db[key]["Fluid Order"] = ["Cu Solution", "Solvent Mixture", "BTC Solution" ]
+
+            exp_volumes = {}
+            
+            target_BTC_concentration = self.sample_db[key]["Target BTC Concentration (mol/L)"]
+            target_Cu_concentration = self.sample_db[key]["Target Cu Concentration (mol/L)"]
+
+            stock_BTC_concentration = self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
+            stock_Cu_concentration = self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
+
+            total_BTC_vol = 5 #mL
+            total_Cu_vol = 5 #mL
+            
+            BTC_dispense_vol = total_BTC_vol*target_BTC_concentration/stock_BTC_concentration
+            Cu_dispense_vol = total_Cu_vol*target_Cu_concentration/stock_Cu_concentration
+
+            solvent_to_dilute_BTC = total_BTC_vol - BTC_dispense_vol
+            solvent_to_dilute_Cu = total_Cu_vol - Cu_dispense_vol
+
+            solvent_dispense_vol = solvent_to_dilute_BTC + solvent_to_dilute_Cu 
+
+
+            exp_volumes["BTC Solution"] = BTC_dispense_vol
+            exp_volumes["Cu Solution"] = Cu_dispense_vol
+            exp_volumes["Solvent Mixture"] = solvent_dispense_vol
+
+            #Add that info to sample database
+
+            self.sample_db[key]["Experiment Volumes (mL)"] = exp_volumes
+
+
+            #Package that to the sample database
+            sub_db = {"Sample ID": code, "TargetComposition": comp, "Address": address}
+            sub_db["Experiment Volumes (mL)"] = exp_volumes
+            self.sample_db[code] = sub_db
+    
     def find_compositions(self, Sample_ID):
         return self.sample_db[Sample_ID]["TargetComposition"]
     
@@ -347,7 +403,7 @@ class Cu_BTC(Experiment):
                                 "Purged": False,
                                 "Purg Vol.": 10,
                                 "Empty threshold": 10, # mL
-                                "Concentration (mol/L)": 0.1
+                                "Concentration (mol/L)": 3.0
                                 }
         
         self.fluid_db["BTC Solution"] = {"Fluid Name": "BTC Solution",
@@ -356,7 +412,7 @@ class Cu_BTC(Experiment):
                                 "Purged": False,
                                 "Purg Vol.": 10,
                                 "Empty threshold": 10, # mL
-                                "Concentration (mol/L)": 0.1
+                                "Concentration (mol/L)": 0.2
                                 }
 
         self.fluid_db["Solvent Mixture"] = {"Fluid Name": "Water",

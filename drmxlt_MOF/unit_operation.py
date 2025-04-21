@@ -5,7 +5,7 @@ from drmxlt_MOF.moving_vials import full_gripper_available_check, Violent_Action
 from drmxlt_MOF.fluid_dispensing import Fluid_dispense
 from drmxlt_MOF.dummy_c9 import tare_balance
 from drmxlt_MOF.im_proc import measure_color
-from starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check
+from drmxlt_MOF.starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check
 
 from drmxlt_MOF.Locator import camera_pos
 
