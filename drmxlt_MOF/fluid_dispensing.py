@@ -1,8 +1,10 @@
 
-from drmxlt_MOF.pipette_traking import get_next_pipette_tip
+from drmxlt_MOF.pipette_traking import get_next_pipette_tip, pip_rem
 from drmxlt_MOF.Locator_supplemental import zip_to_locator, zip_to_pipette_z, waste_disposal_offset
+import north.n9_kinematics as n9
+from Locator import home
 
-
+from Locator import p_rack_right
 
 def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db, system_db, new_pipette_tip = True):
   #Genaric pipetting function to despense an arbitrary volume of fluid from 
@@ -33,7 +35,8 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db, system_db, new_p
   if new_pipette_tip == True:
     get_next_pipette_tip(system_db, c)
   # Pipete tip can only hold 1 ml at a time
-  # So if the volume is more than 0.9 ml, dispense in 0.9 ml batches until it is less than that. 
+  # So if the volume is more than 0.9 ml, dispense in 0.9 ml batches until it is less than that.
+
   if vol > 0.9:
     remaining_vol = vol - 0.9
     Pipette_Fluid(fluid, 0.9, source, destination, c, fluid_db, system_db, False)
@@ -42,8 +45,7 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db, system_db, new_p
   else:
     c.move_pump(0,0)
     
-
-    source_location = zip_to_locator(source) #zip code to north location object
+    source_location = zip_to_locator(source, tool="PipetteTip") #zip code to north location object
     source_zs = zip_to_pipette_z(source) #get the draw, dispense, and safe pipette arm z values for the source
 
     c.goto_xy_safe(source_location) #Move the arm above the source location
@@ -59,20 +61,29 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db, system_db, new_p
     c.set_pump_valve(0, c.PUMP_VALVE_LEFT) # Set the pump valve to draw air from the lab side of syringe
     c.aspirate_ml(0, 0.9-vol) #Draw up to 0.9 ml of air
 
-    destination_location = zip_to_locator(destination) # zip code to noth location object
+    destination_location = zip_to_locator(destination, tool="PipetteTip") # zip code to noth location object
     destination_zs = zip_to_pipette_z(destination) #get the draw, dispense, and safe pipette arm z values for the destination
 
     c.goto_safe(destination_location) #Move the arm above the destination location
     c.move_z(destination_zs[1]) #Move the pipette to dispense height
 
     c.set_pump_valve(0, c.PUMP_VALVE_RIGHT) # Set the pump valve dispense fluid
-    c.dispense_ml(0, 1) #Dispense a full 1 ml (vol should be at most 0.9 ml)
+    c.dispense_ml(0, 0.999) #Dispense a full 1 ml (vol should be at most 0.9 ml)
 
     #update fluid_db
     fluid_db[fluid]['Volume (mL)'] = fluid_db[fluid]['Volume (mL)'] - vol
 
+    #move the arm out of the way
+    c.goto_safe(home)
 
 
+def current_pump_vol(c, pump_num):
+    #Find the volume currently in the syringe pump
+    
+    vol = c.pumps[pump_num]['volume'] * c.pumps[pump_num]['pos'] / n9.PUMP_MAX_COUNTS
+    
+    return vol
+    
 
 
 def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db, waste = False):
@@ -82,29 +93,32 @@ def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db, waste = False):
   if source[0] != 5:
     raise Exception("Invalid source location for syringe pump")
 
-  pump_num = source[2] # Get the pump number from the zip code
+  pump_num = source[1] # Get the pump number from the zip code
   syringe_vol = c.pumps[pump_num]['volume'] # Get the volume of that syringe pump
+  
 
   carousel_pos = zip_to_locator(source)
 
   if vol > syringe_vol:
-    Syringe_Pump_Fluid(fluid, syringe_vol, source, c, fluid_db)
-    Syringe_Pump_Fluid(fluid, vol-syringe_vol, source, c, fluid_db)
+    Syringe_Pump_Fluid(fluid, syringe_vol, source, c, fluid_db, waste)
+    Syringe_Pump_Fluid(fluid, vol-syringe_vol, source, c, fluid_db, waste)
 
   else:
     if waste == True:
       c.move_carousel(carousel_pos[0] + waste_disposal_offset, carousel_pos[1])
 
     else:
-      c.move_carousel(carousel_pos[0] + waste_disposal_offset, carousel_pos[1])
+      c.move_carousel(carousel_pos[0], carousel_pos[1])
+      
+    current_vol = current_pump_vol(c, pump_num)
 
     c.set_pump_valve(pump_num, c.PUMP_VALVE_RIGHT) # Set the pump valve draw fluid
-    c.aspirate_ml(pump_num, vol) #Draw up fluid
+    c.aspirate_ml(pump_num, vol - current_vol) #Draw up fluid
 
     c.delay(0.2)
 
     c.set_pump_valve(pump_num, c.PUMP_VALVE_LEFT) # Set the pump valve dispense fluid
-    c.aspirate_ml(pump_num, vol) #Draw up 0.1 ml of air
+    c.dispense_ml(pump_num, vol) #Dispense 
 
     #update fluid_db
     fluid_db[fluid]['Volume (mL)'] = fluid_db[fluid]['Volume (mL)'] - vol
@@ -126,9 +140,11 @@ def Fluid_dispense(fluid, exp_vol, destination, c, fluid_db, system_db):
   test = in_vial_rack or in_clamp or in_reactor
   if test == True: #If the fluid is in the vial rack, clamp, or reactor
     Pipette_Fluid(fluid, exp_vol, fluid_address, destination, c, fluid_db, system_db)
+    pip_rem(c) #Remove the pipette tip when done
 
   elif fluid_address[0] == 5: #If the fluid is in the syringe pump
     Syringe_Pump_Fluid(fluid, exp_vol, fluid_address, c, fluid_db)
+    c.move_carousel(0,0) #move carousel home
 
 def Purge_fluid(fluid, c, fluid_db):
   fluid_address = fluid_db[fluid]["Address"]
@@ -146,5 +162,6 @@ def Purge_fluid(fluid, c, fluid_db):
   elif fluid_address[0] == 5: #If the fluid is in the syringe pump
     #Purge lines by dispensing to waste
     Syringe_Pump_Fluid(fluid, purge_vol, fluid_address, c, fluid_db, waste=True)
+    c.move_carousel(0,0) #move carousel home
     #Update fluid_db
     fluid_db[fluid]["Purged"] = True

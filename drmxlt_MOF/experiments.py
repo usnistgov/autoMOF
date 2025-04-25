@@ -189,26 +189,26 @@ class Ternary_colordemo(Experiment):
 
         self.fluid_db["Precursor 1"] = {"Fluid Name": "Precursor 1",
                                 "Volume (mL)": 300,
-                                "Address": np.array([5, 1, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
+                                "Address": np.array([5, 3, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 10,
+                                "Purg Vol.": 0.6,
                                 "Empty threshold": 10 # mL
                                 }
 
 
         self.fluid_db["Precursor 2"] = {"Fluid Name": "Precursor 2",
                                 "Volume (mL)": 300,
-                                "Address": np.array([5, 2, 0]), # Syringe Pump, Pump index 2, splitter valve position 0
+                                "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index 2, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 10,
+                                "Purg Vol.": 0.6,
                                 "Empty threshold": 10 # mL
                                 }
 
         self.fluid_db["Precursor 3"] = {"Fluid Name": "Precursor 3",
                                 "Volume (mL)": 300,
-                                "Address": np.array([5, 3, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
+                                "Address": np.array([5, 5, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 10,
+                                "Purg Vol.": 0.6,
                                 "Empty threshold": 10 # mL
                                 }
 
@@ -291,7 +291,18 @@ class Cu_BTC(Experiment):
         self.initialize_target_compositions()
         self.initialize_fluid_db()
         self.define_experiment_conditions()
-        
+        self.initialize_reaction_conditions()
+
+    def initialize_reaction_conditions(self):
+        temperatures = np.random.uniform(100, 300, self.initial_samples)
+
+        times = np.random.uniform(np.log10(10), np.log10(60), self.initial_samples)
+        times = np.power(10, times)
+
+        for key, temp, time in zip(self.sample_db.keys(), temperatures, times):
+            self.sample_db[key]["Temperature (C)"] = temp
+            self.sample_db[key]["Reaction Time (min)"] = time
+
 
     def initialize_target_compositions(self): 
         min_Cu_concentration = 0.5 #mol/L
@@ -306,42 +317,42 @@ class Cu_BTC(Experiment):
 
     def define_experiment_conditions(self):
 
-            """ In this example experiment, we'll use concentrated precursors solution and a solvent mixture.
-            We'll dispense the concentrated stock and dilute in the vial to the desired concentration
-            """
+        """ In this example experiment, we'll use concentrated precursors solution and a solvent mixture.
+        We'll dispense the concentrated stock and dilute in the vial to the desired concentration
+        """
+        
+
+        for key in list(self.sample_db.keys()):
+            #Specify the order to add the fluids
+            self.sample_db[key]["Fluid Order"] = ["Cu Solution", "Solvent Mixture", "BTC Solution" ]
+
+            exp_volumes = {}
             
+            target_BTC_concentration = self.sample_db[key]["Target BTC Concentration (mol/L)"]
+            target_Cu_concentration = self.sample_db[key]["Target Cu Concentration (mol/L)"]
 
-            for key in list(self.sample_db.keys()):
-                #Specify the order to add the fluids
-                self.sample_db[key]["Fluid Order"] = ["Cu Solution", "Solvent Mixture", "BTC Solution" ]
+            stock_BTC_concentration = self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
+            stock_Cu_concentration = self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
 
-                exp_volumes = {}
-                
-                target_BTC_concentration = self.sample_db[key]["Target BTC Concentration (mol/L)"]
-                target_Cu_concentration = self.sample_db[key]["Target Cu Concentration (mol/L)"]
+            total_BTC_vol = 5 #mL
+            total_Cu_vol = 5 #mL
+            
+            BTC_dispense_vol = total_BTC_vol*target_BTC_concentration/stock_BTC_concentration
+            Cu_dispense_vol = total_Cu_vol*target_Cu_concentration/stock_Cu_concentration
 
-                stock_BTC_concentration = self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
-                stock_Cu_concentration = self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
+            solvent_to_dilute_BTC = total_BTC_vol - BTC_dispense_vol
+            solvent_to_dilute_Cu = total_Cu_vol - Cu_dispense_vol
 
-                total_BTC_vol = 5 #mL
-                total_Cu_vol = 5 #mL
-                
-                BTC_dispense_vol = total_BTC_vol*target_BTC_concentration/stock_BTC_concentration
-                Cu_dispense_vol = total_Cu_vol*target_Cu_concentration/stock_Cu_concentration
-
-                solvent_to_dilute_BTC = total_BTC_vol - BTC_dispense_vol
-                solvent_to_dilute_Cu = total_Cu_vol - Cu_dispense_vol
-
-                solvent_dispense_vol = solvent_to_dilute_BTC + solvent_to_dilute_Cu 
+            solvent_dispense_vol = solvent_to_dilute_BTC + solvent_to_dilute_Cu 
 
 
-                exp_volumes["BTC Solution"] = BTC_dispense_vol
-                exp_volumes["Cu Solution"] = Cu_dispense_vol
-                exp_volumes["Solvent Mixture"] = solvent_dispense_vol
+            exp_volumes["BTC Solution"] = BTC_dispense_vol
+            exp_volumes["Cu Solution"] = Cu_dispense_vol
+            exp_volumes["Solvent Mixture"] = solvent_dispense_vol
 
-                #Add that info to sample database
+            #Add that info to sample database
 
-                self.sample_db[key]["Experiment Volumes (mL)"] = exp_volumes
+            self.sample_db[key]["Experiment Volumes (mL)"] = exp_volumes
     
     def add_new_sample(self, Cu_concentrations):
         """This function will add new samples to the existing sample database"""
@@ -392,34 +403,34 @@ class Cu_BTC(Experiment):
             self.sample_db[code] = sub_db
     
     def find_compositions(self, Sample_ID):
-        return self.sample_db[Sample_ID]["TargetComposition"]
+        return self.sample_db[Sample_ID]["Target Cu Concentration (mol/L)"]
     
 
-    def initalize_fluid_db(self):
+    def initialize_fluid_db(self):
 
         self.fluid_db["Cu Solution"] = {"Fluid Name": "Cu Solution",
                                 "Volume (mL)": 300,
-                                "Address": np.array([5, 1, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
+                                "Address": np.array([5, 3, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 10,
+                                "Purg Vol.": 0.3,
                                 "Empty threshold": 10, # mL
                                 "Concentration (mol/L)": 3.0
                                 }
         
         self.fluid_db["BTC Solution"] = {"Fluid Name": "BTC Solution",
                                 "Volume (mL)": 300,
-                                "Address": np.array([5, 2, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
+                                "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 10,
+                                "Purg Vol.": 0.3,
                                 "Empty threshold": 10, # mL
                                 "Concentration (mol/L)": 0.2
                                 }
 
         self.fluid_db["Solvent Mixture"] = {"Fluid Name": "Water",
                                 "Volume (mL)": 300,
-                                "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index 3, splitter valve position 0
+                                "Address": np.array([5, 5, 0]), # Syringe Pump, Pump index 3, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 10,
+                                "Purg Vol.": 0.3,
                                 "Empty threshold": 10 # mL
                                 }
 

@@ -1,7 +1,8 @@
 import numpy as np
 
 # from drmxlt_MOF.Binary_reaction.sample_db_setup import find_address
-from drmxlt_MOF.Locator import *
+# from drmxlt_MOF.Locator import *
+from Locator import *
 #TODO move reactor locations to Locator.py from Locator_supplemental.py
 from drmxlt_MOF.Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
 
@@ -125,13 +126,16 @@ def full_gripper_available_check(sample_db, system_db):
   return gripper_available
 
 def Violent_Action_Precheck(c):
-  #Is the sonicator on?
-  sonicator_status = c.sonicator
-
-  #Is the centrifuge on?
-  centrifuge_status = c.centrifuge
-
-  violent_action = sonicator_status or centrifuge_status
+#   #Is the sonicator on?
+#   sonicator_status = c.sonicator
+# 
+#   #Is the centrifuge on?
+#   centrifuge_status = c.centrifuge
+# 
+#   violent_action = sonicator_status or centrifuge_status
+  
+  
+  violent_action = False
   return violent_action
 
 
@@ -172,7 +176,7 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
 
     #check if the tempearture is low enough
 
-    temp = system_db['reactor'][source[1]]["Temperature"]
+    temp = system_db['reactor'][source[1]]["Temperature (C)"]
     test2 = temp < hot_load_temperature_threshold
 
     reactor_ready = test1 and test2
@@ -296,7 +300,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
     pass
 
   if source[0] == 3: #If sample is in the clamp
-    c.goto_safe(clamp)
+    c.goto_safe(vclamp)
     c.close_gripper()
     system_db['gripper_status'] = "Closed"
     system_db["gripper_occupied"] = True
@@ -306,6 +310,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
   if source[0] == 4: #If sample is in a reactor
     if source[1] == 0: #If sample is in reactor 0
       c.goto_safe(reactor_0[source[2]])
+      # c.goto_safe(react0[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -313,7 +318,8 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
       
 
     elif source[1] == 1: #If sample is in reactor 1
-      c.goto_safe(reactor_1[source[2]])
+      # c.goto_safe(reactor_1[source[2]])
+      c.goto_safe(react1[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -321,6 +327,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif source[1] == 2: #If sample is in reactor 2
       c.goto_safe(reactor_2[source[2]])
+      # c.goto_safe(react2[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -328,6 +335,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif source[1] == 3: #If sample is in reactor 3
       c.goto_safe(reactor_3[source[2]])
+      # c.goto_safe(react3[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -335,6 +343,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif source[1] == 4: #If sample is in reactor 4
       c.goto_safe(reactor_4[source[2]])
+      # c.goto_safe(react4[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -342,6 +351,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif source[1] == 5: #If sample is in reactor 5
       c.goto_safe(reactor_5[source[2]])
+      # c.goto_safe(react5[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -349,6 +359,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif source[1] == 6: #If sample is in reactor 6
       c.goto_safe(reactor_6[source[2]])
+      # c.goto_safe(react6[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -356,6 +367,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif source[1] == 7: #If sample is in reactor 7
       c.goto_safe(reactor_7[source[2]])
+      # c.goto_safe(react7[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -403,7 +415,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
     sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
 
   if destination[0] == 3: #If destination is in the clamp
-    c.goto_safe(clamp)
+    c.goto_safe(vclamp)
     c.open_gripper()
     system_db['gripper_status'] = "Open"
     system_db["gripper_occupied"] = False
@@ -413,13 +425,15 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
   if destination[0] == 4: #If destination is in a reactor
     if destination[1] == 0: #If destination is reactor 0
       c.goto_safe(reactor_0[destination[2]])
+      # c.goto_safe(react0[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 0, destination[2]]) #tell sample_db that it's in the reactor
 
     elif destination[1] == 1: #If destination is reactor 1
-      c.goto_safe(reactor_1[destination[2]])
+      # c.goto_safe(reactor_1[destination[2]])
+      c.goto_safe(react1[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
@@ -427,6 +441,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif destination[1] == 2: #If destination is reactor 2
       c.goto_safe(reactor_2[destination[2]])
+      # c.goto_safe(react2[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
@@ -434,6 +449,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif destination[1] == 3: #If destination is reactor 3
       c.goto_safe(reactor_3[destination[2]])
+      # c.goto_safe(react3[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
@@ -441,6 +457,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif destination[1] == 4: #If destination is reactor 4
       c.goto_safe(reactor_4[destination[2]])
+      # c.goto_safe(react4[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
@@ -448,6 +465,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif destination[1] == 5: #If destination is reactor 5
       c.goto_safe(reactor_5[destination[2]])
+      # c.goto_safe(react5[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
@@ -455,10 +473,152 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif destination[1] == 6: #If destination is reactor 6
       c.goto_safe(reactor_6[destination[2]])
+      # c.goto_safe(react6[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([4, 6, destination[2]]) #tell sample_db that it's in the reactor
+
+    elif destination[1] == 7: #If destination is reactor 7
+      c.goto_safe(reactor_7[destination[2]])
+      # c.goto_safe(react7[destination[2]])
+      c.open_gripper()
+      system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
+      sample_db[Sample_ID]["Address"] = np.array([4, 7, destination[2]]) #tell sample_db that it's in the reactor
+
+    else:
+      raise Exception("Invalid reactor location")
+    system_db["reactor"][destination[1]][destination[2]]["Assignment"] = Sample_ID #Tell the system_db that this reactor now has the sample
+
+  if destination[0] == 5: #If destination is the syringe pumps
+    raise Exception("Syringe pumps not a valid destination for a sample")
+  
+  #TODO: push sample db to Cordra
+
+
+def force_Move_Vial(source, destination, c):
+  """WARNING: untracked vial movement
+  This function will attempt to move a vial from any 
+  valid source location to any valid destination location
+  WITHOUT checking the system or sample databases
+  WITHOUT updtaing the system or sample databases
+  WITHOUT checking for occupancy conflicts
+
+  Useful primiarily for seting up the system outside of normal experiment operations.   
+  """
+  #### Source #####
+  if source[0] == 1: #If sample is in the vial rack
+    if source[1] == 0: #If sample is in the left vial rack
+      c.goto_safe(rack_left[source[2]])
+      c.close_gripper()
+
+    elif source[1] == 1: #If sample is in the right vial rack
+      c.goto_safe(rack_right[source[2]])
+      c.close_gripper()
+
+    else:
+      raise Exception("Invalid rack location")
+
+  if source[0] == 2: #If sample is in the gripper
+    pass
+
+  if source[0] == 3: #If sample is in the clamp
+    c.goto_safe(vclamp)
+    c.close_gripper()
+   
+  if source[0] == 4: #If sample is in a reactor
+    if source[1] == 0: #If sample is in reactor 0
+      c.goto_safe(reactor_0[source[2]])
+      c.close_gripper()    
+
+    elif source[1] == 1: #If sample is in reactor 1
+      c.goto_safe(reactor_1[source[2]])
+      c.close_gripper()
+
+    elif source[1] == 2: #If sample is in reactor 2
+      c.goto_safe(reactor_2[source[2]])
+      c.close_gripper()
+
+    elif source[1] == 3: #If sample is in reactor 3
+      c.goto_safe(reactor_3[source[2]])
+      c.close_gripper()
+
+    elif source[1] == 4: #If sample is in reactor 4
+      c.goto_safe(reactor_4[source[2]])
+      c.close_gripper()
+
+    elif source[1] == 5: #If sample is in reactor 5
+      c.goto_safe(reactor_5[source[2]])
+      c.close_gripper()
+
+    elif source[1] == 6: #If sample is in reactor 6
+      c.goto_safe(reactor_6[source[2]])
+      c.close_gripper()
+
+    elif source[1] == 7: #If sample is in reactor 7
+      c.goto_safe(reactor_7[source[2]])
+      c.close_gripper()
+
+    else:
+      raise Exception("Invalid reactor location")
+    system_db["reactor"][source[1]][source[2]]["Assignment"] = "Empty" #Tell the system_db that this reactor location is empty
+
+  if destination[0] == 5: #If destination is the syringe pumps
+    raise Exception("Syringe pumps not a valid source location for a sample")
+  
+  #TODO: push sample db to Cordra
+
+  #### Destination #####
+
+  if destination[0] == 1: #If destination is in the vial rack
+    if destination[1] == 0: #If destination is in the left vial rack
+      c.goto_safe(rack_left[destination[2]])
+      c.open_gripper()
+
+    elif destination[1] == 1: #If destination is in the right vial rack
+      c.goto_safe(rack_right[destination[2]])
+      c.open_gripper()
+
+    else:
+      raise Exception("Invalid rack location")
+
+  if destination[0] == 2: #If destination is in the gripper
+    c.close_gripper()
+
+  if destination[0] == 3: #If destination is in the clamp
+    c.goto_safe(vclamp)
+    c.open_gripper()
+
+
+  if destination[0] == 4: #If destination is in a reactor
+    if destination[1] == 0: #If destination is reactor 0
+      c.goto_safe(reactor_0[destination[2]])
+      c.open_gripper()
+
+    elif destination[1] == 1: #If destination is reactor 1
+      c.goto_safe(reactor_1[destination[2]])
+      c.open_gripper()
+
+    elif destination[1] == 2: #If destination is reactor 2
+      c.goto_safe(reactor_2[destination[2]])
+      c.open_gripper()
+
+    elif destination[1] == 3: #If destination is reactor 3
+      c.goto_safe(reactor_3[destination[2]])
+      c.open_gripper()
+
+    elif destination[1] == 4: #If destination is reactor 4
+      c.goto_safe(reactor_4[destination[2]])
+      c.open_gripper()
+
+    elif destination[1] == 5: #If destination is reactor 5
+      c.goto_safe(reactor_5[destination[2]])
+      c.open_gripper()
+
+    elif destination[1] == 6: #If destination is reactor 6
+      c.goto_safe(reactor_6[destination[2]])
+      c.open_gripper()
 
     else:
       raise Exception("Invalid reactor location")

@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from drmxlt_MOF.Locator import *
+# from drmxlt_MOF.Locator import *
+from Locator import *
 
 pipette_array = np.arange(0,48).reshape(-1,3).T #Array 0-48, 3x16, but rows are out of order.
 pipette_array = pipette_array[::-1, :] # Flip the ordering of the rows.
@@ -44,6 +45,12 @@ def get_next_pipette_tip(system_db, c):
 
     #Mark that that pipette tip index is used
     system_db["fresh_pipettes"][system_db["pipette_array"] == next_pipette] = 0
+
+def pip_rem(c):
+    """Remove a pipette tip"""
+    c.goto_safe(p_remover_ap)
+    c.goto(p_rem,vel=5,accel=5)
+    c.move_z(292)
 
 
 fresh_pipettes = fresh_pipette_rack()

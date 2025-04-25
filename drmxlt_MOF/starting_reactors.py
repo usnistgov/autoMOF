@@ -1,7 +1,7 @@
 import numpy as np
 
 from north import NorthC9
-import omega7523_interface as om
+import drmxlt_MOF.omega7523_interface as om
 
 
 # c9 = NorthC9('A', network_serial="FT6VE3MC", heartbeat=True)
@@ -49,11 +49,13 @@ def temp_ramp_up_hold_down(t8, channel: int, target_temp: float, dwell_time: int
     
 def hold_temp(t8, channel, temp):
     # will hold the given temp indefinitely
-    set_PID_mode(channel)
+    print(f"hold_temp channel = {channel}")
+    set_PID_mode(t8, channel)
     t8.set_temp(temp)
     t8.enable_channel(channel)
         
 def set_PID_mode(t8, channel):
+    print(f"set_PID_mode channel = {channel}")
     t8.write_temp_word(channel, om.CTRL_METHOD, om.CTRL_PID) 
 
 

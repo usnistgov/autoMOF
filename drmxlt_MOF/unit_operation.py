@@ -7,8 +7,8 @@ from drmxlt_MOF.dummy_c9 import tare_balance
 from drmxlt_MOF.im_proc import measure_color
 from drmxlt_MOF.starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check
 
-from drmxlt_MOF.Locator import camera_pos
-
+# from drmxlt_MOF.Locator import camera_pos
+from Locator import camera_pos, clamp
 
 def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
   #TODO: Add flag for sensitive dispensing (precursors, vs washing steps)
@@ -62,7 +62,6 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
   #Dispense
   weighed_composition = {}
   for fluid in experiment.sample_db[Sample_ID]["Fluid Order"]:
-
     exp_vol = experiment.sample_db[Sample_ID]["Experiment Volumes (mL)"][fluid]
     Fluid_dispense(fluid, exp_vol, destination, c, experiment.fluid_db, system_db)
     weighed_composition[fluid] = c.read_steady_scale() 
@@ -71,14 +70,14 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
   #TODO: push sample and fluid dbs to Cordra
 
   #Re-cap
+  c.goto_xy_safe(clamp)
   c.close_clamp()
   system_db["clamp_status"] = "Closed"
-  c.uncap()
-  c.move_z(300)
+  c.move_z(186)
+  c.cap(revs=2,torque_thresh=1650)
   c.open_clamp()
   system_db["clamp_status"] = "Open"
     
-
   #Move to gripper
   destination = np.array([2, 0, 0]) #Want to move to the gripper
   Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
@@ -102,6 +101,8 @@ def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
 
   reactor_id = address[1] #Find the reactor ID from the zip code
 
+
+  print(f"Preheat_reactor channel = {reactor_id}")
   hold_temp(t, reactor_id, target_temperature)
 
   #update the system db to capture the set temperature. 
