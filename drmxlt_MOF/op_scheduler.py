@@ -418,15 +418,15 @@ def define_cp_job(unit_ops_df,
 
       temperatures = np.unique(sub_df["Reactor Temperature (C)"].to_numpy())
 
-      samples_using_this_reactor = sub_df["Sample Name"].to_numpy()
-      sample_name_index = np.argwhere(np.isin(sample_names, samples_using_this_reactor)).flatten()
+      # samples_using_this_reactor = sub_df["Sample Name"].to_numpy()
+      # sample_name_index = np.argwhere(np.isin(sample_names, samples_using_this_reactor)).flatten()
      
-      print(f"Temperatures on each reactor = {temperatures}")
-      print(samples_using_this_reactor)
-      print(sample_name_index)
-      print(machine_to_intervals[reactor+1])
-      for job_a, sample_a in zip(sample_name_index, samples_using_this_reactor):
-         for job_b, sample_b in zip(sample_name_index, samples_using_this_reactor):
+      # # print(f"Temperatures on each reactor = {temperatures}")
+      # # print(samples_using_this_reactor)
+      # # print(sample_name_index)
+      # # print(machine_to_intervals[reactor+1])
+      # # for job_a, sample_a in zip(sample_name_index, samples_using_this_reactor):
+      # #    for job_b, sample_b in zip(sample_name_index, samples_using_this_reactor):
             
 
       longest_sample_duration_at_each_temp = []
@@ -452,14 +452,15 @@ def define_cp_job(unit_ops_df,
 
         #Add the sample with the longest duration to the list
         longest_sample_duration_at_each_temp.append(sub_sub_df["Sample Name"].to_numpy()[-1])
-
+      
       #Add constraint for: with the same reactor the lower temperature should start first
       if len(longest_sample_duration_at_each_temp) > 1:
         for i, name in enumerate(longest_sample_duration_at_each_temp[:-1]):
           low_temp_sample_index = np.argwhere(sample_names == name).flatten()[0]
           high_temp_sample_index = np.argwhere(sample_names == longest_sample_duration_at_each_temp[i+1]).flatten()[0]
+
           model.add(
-              all_tasks[low_temp_sample_index, 1].end <= all_tasks[high_temp_sample_index, 1].start #Low temp react task must end before high temp react task can start
+              all_tasks[low_temp_sample_index, 2].end <= all_tasks[high_temp_sample_index, 2].start #Low temp react task must end before high temp react task can start
           )
 
     # Makespan objective.

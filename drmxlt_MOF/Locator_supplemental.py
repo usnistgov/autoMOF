@@ -15,9 +15,9 @@ reactor_7 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
 
 # Carousel Position for Syringe Pump Dispense to Clamp
 # [Rotation, hieght]
-pump_0 = [0, 0]
-pump_1 = [0, 0]
-pump_2 = [0, 0]
+pump_0 = [0, 17] #Or make it error in trying to move the caroursel to pump 0
+pump_1 = [225, 17]
+pump_2 = [180, 17]
 pump_3 = [135, 17]
 pump_4 = [90, 17]
 pump_5 = [45, 17]
