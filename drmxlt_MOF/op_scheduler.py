@@ -5,6 +5,8 @@ import collections
 from ortools.sat.python import cp_model
 
 
+
+
 #TODO encode some logic for the case where there are more reactions at the same temperature than there are positions in the same reactor!!!
 
 def reactor_use_assignment(reactor_df, number_of_reactors, positions_in_reactor):
@@ -523,3 +525,8 @@ def define_cp_job(unit_ops_df,
         print(output)
     else:
         print("No solution found.")
+
+
+
+
+

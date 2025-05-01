@@ -134,6 +134,24 @@ def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp
   temp_ramp_up_hold_down(t, reactor_id, target_temperature, reaction_time, end_temp)
   
 
+#TODO
+# def Move_to_reactor():
+#   pass
+# def Move_to_centrifuge():
+#   pass
+# def Centrifuge():
+#   pass
+# def RM_supernatent():
+#   pass
+# def Move_to_sonicator():
+#   pass
+# def Sonicate():
+#   pass
+
+
+
+
+
 class UnitOP_table():
   """Each sample will have a fixed set of unit ops in a particular order
   Each operation will occupy the Arm&Clamp for some amount of time.
