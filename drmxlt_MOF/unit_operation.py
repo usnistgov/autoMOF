@@ -95,6 +95,16 @@ def Measure_color(Sample_ID, c, system_db, experiment):
 
   measure_color(Sample_ID, experiment.sample_db)
 
+def Move_to_reactor(Sample_ID, c, system_db, experiment):
+
+  #Pre-move check
+  #TODO: find open spot on reactor
+  destination = np.array([4, 0, 0]) #Want to move to the reactor
+  # Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  #Move vial to clamp
+  Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
+
 
 def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
   target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"]
@@ -109,7 +119,10 @@ def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
   system_db["reactor"][reactor_id]["Set Temperature (C)"] = target_temperature
 
 
-def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp = 10):
+# def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp = 10):
+def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
+  #TODO Find the open spot on reactor
+  destination = np.array([4,0,0])
   reactor_id = destination[1]
   target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"]
   reaction_time = experiment.sample_db[Sample_ID]["Reaction Time (min)"]
@@ -136,6 +149,9 @@ def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp
 
 #TODO
 # def Move_to_reactor():
+#   pass
+# def Move_from_reactor():
+#   """Do we need a function for scheduling purposes that moves the sample out of the reactor so that the next sample can go in?"
 #   pass
 # def Move_to_centrifuge():
 #   pass

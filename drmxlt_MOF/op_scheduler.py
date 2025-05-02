@@ -217,7 +217,8 @@ def create_unit_ops_df(sample_db,
 def define_cp_job(unit_ops_df,
                   reactors, 
                   centrifuge = 1, 
-                  sonicator = 1):
+                  sonicator = 1,
+                  print_solution = False):
 
     """Function that reads the unit_ops_df,
     and creates a constraint satisfaction problem.
@@ -230,6 +231,9 @@ def define_cp_job(unit_ops_df,
     Reactions that overlap on the same reactor must END at the same time. 
 
     """
+    #TODO creat reference for order of operations:
+    #Order of operations
+    op_order = ["add_fluids", "move_to_reactor", "react", "move_to_centrifuge", "centrifuge", "rm_supernatent", "move_to_sonicator", "sonicate"]
 
 
     #Start a container for all the jobs (a job is the collectons of each task for a sample)
@@ -274,7 +278,8 @@ def define_cp_job(unit_ops_df,
             # print(task_id)
 
             if operation == "add_fluids":
-                task_id = 0
+                task_id = op_order.index("add_fluids")
+                # task tuple: (machine id, duration)
                 task = (0, int(np.ceil(task_df[1]["Duration (Ds)"]))) #Add_fluids only uses the arm&clamp
                 task_list.append(task)
 
@@ -287,7 +292,8 @@ def define_cp_job(unit_ops_df,
                 machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
 
             elif operation == "move_to_reactor":
-                task_id = 1
+                task_id = op_order.index("move_to_reactor")
+                # task tuple: (machine id, duration)
                 task = (0, int(np.ceil(task_df[1]["Duration (Ds)"]))) #use the arm&clamp to move the sample to the reactor
                 task_list.append(task)
 
@@ -300,7 +306,8 @@ def define_cp_job(unit_ops_df,
                 machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
 
             elif operation == "react":
-                task_id = 2
+                task_id = op_order.index("react")
+                # task tuple: (machine id, duration)
                 task = (task_df[1]["Reactor"] + 1, int(np.ceil(task_df[1]["Duration (Ds)"]))) #use the reactor
                 task_list.append(task)
 
@@ -313,7 +320,8 @@ def define_cp_job(unit_ops_df,
                 machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
 
             elif operation == "move_to_centrifuge":
-                task_id = 3
+                task_id = op_order.index("move_to_centrifuge")
+                # task tuple: (machine id, duration)
                 task = (0, int(np.ceil(task_df[1]["Duration (Ds)"]))) #use the arm&clamp to move the sample to the centrifuge
                 task_list.append(task)
 
@@ -326,7 +334,8 @@ def define_cp_job(unit_ops_df,
                 machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
 
             elif operation == "centrifuge":
-                task_id = 4
+                task_id = op_order.index("centrifuge")
+                # task tuple: (machine id, duration)
                 task = (reactors + 1, int(np.ceil(task_df[1]["Duration (Ds)"]))) #use the centrifuge
                 task_list.append(task)
 
@@ -339,7 +348,8 @@ def define_cp_job(unit_ops_df,
                 machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
             
             elif operation == "rm_supernatent":
-                task_id = 5
+                task_id = op_order.index("rm_supernatent")
+                # task tuple: (machine id, duration)
                 task = (0, int(np.ceil(task_df[1]["Duration (Ds)"]))) #rm_supernatent only uses the arm&clamp
                 task_list.append(task)
 
@@ -352,7 +362,8 @@ def define_cp_job(unit_ops_df,
                 machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
             
             elif operation == "move_to_sonicator":
-                task_id = 6
+                task_id = op_order.index("move_to_sonicator")
+                # task tuple: (machine id, duration)
                 task = (0, int(np.ceil(task_df[1]["Duration (Ds)"]))) #use the arm&clamp to move the sample to the sonicator
                 task_list.append(task)
 
@@ -365,8 +376,9 @@ def define_cp_job(unit_ops_df,
                 machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
             
             elif operation == "sonicate":
-                task_id = 7
-                
+                task_id = op_order.index("sonicate")
+
+                # task tuple: (machine id, duration)
                 task = (reactors + 2, int(np.ceil(task_df[1]["Sonicator Duration (Ds)"]))) #use the sonicator
                 task_list.append(task)
 
@@ -407,9 +419,10 @@ def define_cp_job(unit_ops_df,
               operation = task_df[1]["UnitOP"]
 
               if operation == "move_to_reactor":
-                task_id = 1 #Move to reactor task is always task 1, and react is always task 2
+                task_id = op_order.index("move_to_reactor")
+                react_task_id = op_order.index("react")
                 model.add(
-                  all_tasks[job_id, task_id].end == all_tasks[job_id, task_id + 1].start
+                  all_tasks[job_id, task_id].end == all_tasks[job_id, react_task_id].start
                 )
 
               
@@ -439,12 +452,14 @@ def define_cp_job(unit_ops_df,
         samples_at_that_temp = sub_df[sub_df["Reactor Temperature (C)"] == temp]["Sample Name"].to_numpy()
         sample_name_index = np.argwhere(np.isin(sample_names, samples_at_that_temp)).flatten()
 
+        react_task_id = op_order.index("react")
+
         for i in sample_name_index:
           for j in sample_name_index:
             if i != j:
               if i < j:
                 model.add(
-                    all_tasks[i, 1].end == all_tasks[j, 1].end #Job i, task 1 (react) must end at the same time as Job j, task 1
+                    all_tasks[i, react_task_id].end == all_tasks[j, react_task_id].end #Job i, task (react) must end at the same time as Job j, task (react)
                 )
         #Get the piece of the dataframe that is at that temperature
         sub_sub_df = sub_df[sub_df["Reactor Temperature (C)"] == temp]
@@ -479,52 +494,78 @@ def define_cp_job(unit_ops_df,
     status = solver.solve(model)
 
 
-    ###### Display Solution ######
+    ###### Record Solution ######
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-        print("Solution:")
-        # Create one list of assigned tasks per machine.
-        assigned_jobs = collections.defaultdict(list)
-        for job_id, job in enumerate(job_list):
-            for task_id, task in enumerate(job):
-                machine = task[0]
-                assigned_jobs[machine].append(
-                    assigned_task_type(
-                        start=solver.value(all_tasks[job_id, task_id].start),
-                        job=job_id,
-                        index=task_id,
-                        duration=task[1],
-                    )
-                )
 
-        # Create per machine output lines.
-        output = ""
-        for machine in all_machines:
-            # Sort by starting time.
-            assigned_jobs[machine].sort()
-            sol_line_tasks = "Machine " + str(machine) + ": "
-            sol_line = "           "
+        for key in all_tasks.keys():
+           job_id = key[0]
+           task_id = key[1]
 
-            for assigned_task in assigned_jobs[machine]:
-                name = f"job_{assigned_task.job}_task_{assigned_task.index}"
-                # add spaces to output to align columns.
-                sol_line_tasks += f"{name:15}"
+           sample_name = sample_names[job_id]
+           op_name = op_order[task_id]
 
-                start = assigned_task.start
-                duration = assigned_task.duration
-                sol_tmp = f"[{start},{start + duration}]"
-                # add spaces to output to align columns.
-                sol_line += f"{sol_tmp:15}"
+           sub_df = unit_ops_df[unit_ops_df["Sample Name"] == sample_name]
+           sub_sub_df = sub_df[sub_df["UnitOP"] == op_name]
 
-            sol_line += "\n"
-            sol_line_tasks += "\n"
-            output += sol_line_tasks
-            output += sol_line
+           mask1 = unit_ops_df["Sample Name"] == sample_name
+           mask2 = sub_df["UnitOP"] == op_name
+           mask = mask1 & mask2
+           row = unit_ops_df[mask].index
 
-        # Finally print the solution found.
-        print(f"Optimal Schedule Length: {solver.objective_value}")
-        print(output)
+           start_time = solver.value(all_tasks[key].start)
+           end_time = solver.value(all_tasks[key].end)
+
+           unit_ops_df.loc[row, "Start Time (Ds)"] = start_time
+           unit_ops_df.loc[row, "End Time (Ds)"] = end_time
+
+        if print_solution == True:
+
+          print("Solution:")
+          # Create one list of assigned tasks per machine.
+          assigned_jobs = collections.defaultdict(list)
+          for job_id, job in enumerate(job_list):
+              for task_id, task in enumerate(job):
+                  machine = task[0]
+                  assigned_jobs[machine].append(
+                      assigned_task_type(
+                          start=solver.value(all_tasks[job_id, task_id].start),
+                          job=job_id,
+                          index=task_id,
+                          duration=task[1],
+                      )
+                  )
+
+
+          output = ""
+          for machine in all_machines:
+              # Sort by starting time.
+              assigned_jobs[machine].sort()
+              sol_line_tasks = "Machine " + str(machine) + ": "
+              sol_line = "           "
+
+              for assigned_task in assigned_jobs[machine]:
+                  name = f"job_{assigned_task.job}_task_{assigned_task.index}"
+                  # add spaces to output to align columns.
+                  sol_line_tasks += f"{name:15}"
+
+                  start = assigned_task.start
+                  duration = assigned_task.duration
+                  sol_tmp = f"[{start},{start + duration}]"
+                  # add spaces to output to align columns.
+                  sol_line += f"{sol_tmp:15}"
+
+              sol_line += "\n"
+              sol_line_tasks += "\n"
+              output += sol_line_tasks
+              output += sol_line
+
+          # Finally print the solution found.
+          print(f"Optimal Schedule Length: {solver.objective_value}")
+          print(output)
     else:
         print("No solution found.")
+
+    return unit_ops_df, solver.objective_value
 
 
 

@@ -9,11 +9,11 @@ from drmxlt_MOF.unit_operation import (Add_fluids,
                                        Preheat_reactor,
                                        Move_to_reactor, 
                                        Start_reaction, 
-                                       Move_to_centrifuge,
-                                       Centrifuge,
-                                       RM_supernatent,
-                                       Move_to_sonicator,
-                                       Sonicate,
+                                    #    Move_to_centrifuge,
+                                    #    Centrifuge,
+                                    #    RM_supernatent,
+                                    #    Move_to_sonicator,
+                                    #    Sonicate,
                                        )
 
 def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
@@ -48,25 +48,25 @@ def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
         Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp)
         event.set()
 
-    elif op_name == "move_to_centrifuge":
-        Move_to_centrifuge(Sample_ID, c, system_db, experiment)
-        event.set()
+    # elif op_name == "move_to_centrifuge":
+    #     Move_to_centrifuge(Sample_ID, c, system_db, experiment)
+    #     event.set()
 
-    elif op_name == "centrifuge":
-        Centrifuge(Sample_ID, c, system_db, experiment)
-        event.set()
+    # elif op_name == "centrifuge":
+    #     Centrifuge(Sample_ID, c, system_db, experiment)
+    #     event.set()
     
-    elif op_name == "rm_supernatent":
-        RM_supernatent(Sample_ID, c, system_db, experiment)
-        event.set()
+    # elif op_name == "rm_supernatent":
+    #     RM_supernatent(Sample_ID, c, system_db, experiment)
+    #     event.set()
 
-    elif op_name == "move_to_sonicator":
-        Move_to_sonicator(Sample_ID, c, system_db, experiment)
-        event.set()
+    # elif op_name == "move_to_sonicator":
+    #     Move_to_sonicator(Sample_ID, c, system_db, experiment)
+    #     event.set()
 
-    elif op_name == "sonicate":
-        Sonicate(Sample_ID, c, system_db, experiment)
-        event.set()
+    # elif op_name == "sonicate":
+    #     Sonicate(Sample_ID, c, system_db, experiment)
+    #     event.set()
 
 
 def launch_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
@@ -76,10 +76,10 @@ def launch_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
    and build a scheduler that launches those at the right time"""
 
 
-   op_start_times = unit_ops_df["Start Times (Ds)"].to_list()
+   op_start_times = unit_ops_df["Start Time (Ds)"].to_list()
    op_start_times *= 10 #convert start times from Ds to s
 
-   op_list = unit_ops_df["UnitOp"].to_list()
+   op_list = unit_ops_df["UnitOP"].to_list()
 
    sample_list = unit_ops_df["Sample Name"].to_list()
 
