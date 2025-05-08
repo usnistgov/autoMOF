@@ -45,6 +45,7 @@ def get_next_pipette_tip(system_db, c):
 
     #Mark that that pipette tip index is used
     system_db["fresh_pipettes"][system_db["pipette_array"] == next_pipette] = 0
+    #TODO: push system db to Cordra
 
 def pip_rem(c):
     """Remove a pipette tip"""

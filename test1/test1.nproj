@@ -691,7 +691,7 @@
       "ik_soln": 0,
       "reference": false,
       "linked_parent_name": null,
-      "rotation": 0,
+      "rotation": 1.57,
       "n": [
         8,
         6,
@@ -715,7 +715,7 @@
       "ik_soln": 0,
       "reference": false,
       "linked_parent_name": null,
-      "rotation": 0,
+      "rotation": 1.57,
       "n": [
         8,
         6,
@@ -726,6 +726,19 @@
         26.0,
         0.0
       ]
+    },
+    "barcode_pos": {
+      "type": "Location",
+      "tool": 0,
+      "counts": [
+        2180,
+        13727,
+        48812,
+        14600
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
     }
   },
   "sim_inputs": {

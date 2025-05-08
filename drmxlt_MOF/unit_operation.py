@@ -45,16 +45,19 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
   #Un-cap
   c.close_clamp()
   system_db["clamp_status"] = "Closed"
+  #TODO: push system db to Cordra
   c.uncap()
   c.move_z(300)
   c.open_clamp()
   system_db["clamp_status"] = "Open"
+  #TODO: push system db to Cordra
 
 
   #Weigh empty vial
   if new_sample == True:
     empty_weight = c.read_steady_scale()
     experiment.sample_db[Sample_ID]["Empty Weight"] = empty_weight
+    #TODO: push sample db to Cordra
 
   #Tare scale with empty vial
   tare_balance(c)
@@ -67,16 +70,18 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
     weighed_composition[fluid] = c.read_steady_scale() 
 
   experiment.sample_db[Sample_ID]["Weighed Composition (g)"] = weighed_composition
-  #TODO: push sample and fluid dbs to Cordra
+  #TODO: push sample db to Cordra
 
   #Re-cap
   c.goto_xy_safe(clamp)
   c.close_clamp()
   system_db["clamp_status"] = "Closed"
+  #TODO: push system db to Cordra
   c.move_z(186)
   c.cap(revs=2,torque_thresh=1650)
   c.open_clamp()
   system_db["clamp_status"] = "Open"
+  #TODO: push system db to Cordra
     
   #Move to gripper
   destination = np.array([2, 0, 0]) #Want to move to the gripper
@@ -117,6 +122,7 @@ def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
 
   #update the system db to capture the set temperature. 
   system_db["reactor"][reactor_id]["Set Temperature (C)"] = target_temperature
+  #TODO: push system db to Cordra
 
 
 # def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp = 10):
@@ -136,6 +142,7 @@ def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
   #Record the reactor temperature
   measured_tempeature = t.get_temp(reactor_id)
   system_db["reactor"][reactor_id]["Meas. Temperature (C)"] = measured_tempeature
+  #TODO: push system db to Cordra
 
   #Pre-move check
   Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
@@ -164,7 +171,7 @@ def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
 # def Sonicate():
 #   pass
 
-
+######################### Scatch Paper below ##########################
 
 
 

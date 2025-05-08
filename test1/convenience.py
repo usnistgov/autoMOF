@@ -1,6 +1,6 @@
 c=None
 from Locator import *
-
+import numpy as np
 pump_c_pos = {5: 45, 4: 90, 3:135}
 
 #dispense the full volume of a syringe pump
@@ -107,3 +107,65 @@ def purge_pump(pump,n=2,pos=90,vol=None):
     c.move_carousel(ppos,17)
     dispense(pump,tvol)
     c.move_carousel(0,0)
+    
+def clear_line(pump,n=2,pos=90,vol=None):
+    svol=c.pumps[pump]['volume']
+    if vol==None:
+        vol=svol*n
+    tvol=vol
+    #ppos=pump_c_pos[pump]+pos
+    #c.move_carousel(ppos,17)
+    c.set_pump_valve(pump, c.PUMP_VALVE_LEFT)
+    c.move_pump(pump,3000)
+    cyc=tvol/svol
+    for n in range(np.int(np.floor(cyc))):
+        c.set_pump_valve(pump, c.PUMP_VALVE_LEFT)
+        c.move_pump(pump,3000)
+        c.set_pump_valve(pump, c.PUMP_VALVE_RIGHT)
+        c.move_pump(pump,0)
+    if np.mod(cyc)!=0:
+        disp=np.mod(cyc)*3000
+        c.set_pump_valve(pump, c.PUMP_VALVE_LEFT)
+        c.move_pump(pump,disp)
+        c.set_pump_valve(pump, c.PUMP_VALVE_RIGHT)
+        c.move_pump(pump,0)
+        
+from pyzbar.pyzbar import decode
+import time
+# import cv2
+# from north_simple_camera import SimpleCamera, SimplePhoto
+#import im_proc
+
+# cam = SimpleCamera(0)
+def scan_barcode(cam, source, pickup= True, iteration = 0):
+    if pickup == True:
+        c.goto_safe(source)
+        c.close_gripper()
+        c.goto_safe(barcode_pos)
+    
+    time.sleep(1)
+    pic=cam.capture()
+    time.sleep(1)
+    pic.show()
+    bcnum=decode(pic.img)
+    
+    if iteration > 4:
+        raise Exception("No Barcode detected")
+    
+    if not bcnum:
+        print('no barcode detected')
+        pos = c.get_axis_position(0)
+        pos = c.counts_to_rad(0,pos)
+        c.move_axis_rad(0, pos+2*np.pi/4, wait=True)
+        scan_barcode(cam, source, pickup= False, iteration = iteration+1)
+    else:
+        c.reduce_axis_position(0)
+        print(f"barcode = {bcnum}")
+    
+        
+        
+
+    
+    
+    
+    

@@ -1,0 +1,1013 @@
+{
+  "controllers": [
+    {
+      "id": 1,
+      "name": "C9",
+      "address": 65
+    }
+  ],
+  "modules": {
+    "1": {
+      "res_id": "deck.2023_04_17",
+      "name": "deck",
+      "pyname": "deck",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "rot": 0.0,
+      "channels": []
+    },
+    "2": {
+      "res_id": "n9.2023_04_17",
+      "name": "N9",
+      "pyname": "N9",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "rot": 0.0,
+      "channels": [
+        {
+          "axis_name": "Z Axis",
+          "controller_id": 1,
+          "channel_n": 3
+        },
+        {
+          "axis_name": "Shoulder",
+          "controller_id": 1,
+          "channel_n": 2
+        },
+        {
+          "axis_name": "Elbow",
+          "controller_id": 1,
+          "channel_n": 1
+        },
+        {
+          "axis_name": "Gripper",
+          "controller_id": 1,
+          "channel_n": 0
+        },
+        {
+          "axis_name": "Gripper fingerS",
+          "controller_id": 1,
+          "channel_n": 8
+        }
+      ]
+    },
+    "3": {
+      "res_id": "clamp.2023_04_17",
+      "name": "clamp",
+      "pyname": "clamp",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": -0.225,
+      "y": 0.01875,
+      "z": 0.047,
+      "rot": 0,
+      "channels": [
+        {
+          "axis_name": "Actuate clamp",
+          "controller_id": 1,
+          "channel_n": 9
+        }
+      ]
+    },
+    "4": {
+      "m_id": 4,
+      "res_id": "pump.2023_04_17",
+      "name": "syringe_pump",
+      "pyname": "syringe_pump",
+      "enabled": true,
+      "type": "poseable",
+      "subtype": "pump",
+      "tool": "None",
+      "grid": null,
+      "coord_sys": -1,
+      "x": -0.097423,
+      "y": -0.12,
+      "z": 0.46358,
+      "rot": 0.0,
+      "mates": [],
+      "channels": [
+        {
+          "axis_name": "Plunger",
+          "controller_id": 1,
+          "channel_n": 24
+        },
+        {
+          "axis_name": "Valve",
+          "controller_id": 1,
+          "channel_n": 25
+        }
+      ],
+      "kinematics": [
+        {
+          "slope": -1.133e-05,
+          "y_int": 0.034
+        },
+        {
+          "slope": 0.0031415,
+          "y_int": -1.570796
+        }
+      ],
+      "init_counts": [
+        0,
+        0
+      ],
+      "volume": 1.0,
+      "address": 0
+    },
+    "5": {
+      "m_id": 5,
+      "res_id": "pump.2023_04_17",
+      "name": "syringe_pump_2",
+      "pyname": "syringe_pump_2",
+      "enabled": true,
+      "type": "poseable",
+      "subtype": "pump",
+      "tool": "None",
+      "grid": null,
+      "coord_sys": -1,
+      "x": -0.14242,
+      "y": -0.12,
+      "z": 0.46358,
+      "rot": 0.0,
+      "mates": [],
+      "channels": [
+        {
+          "axis_name": "Plunger",
+          "controller_id": 1,
+          "channel_n": 26
+        },
+        {
+          "axis_name": "Valve",
+          "controller_id": 1,
+          "channel_n": 27
+        }
+      ],
+      "kinematics": [
+        {
+          "slope": -1.133e-05,
+          "y_int": 0.034
+        },
+        {
+          "slope": 0.0031415,
+          "y_int": -1.570796
+        }
+      ],
+      "init_counts": [
+        0,
+        0
+      ],
+      "volume": 1.0,
+      "address": 1
+    },
+    "6": {
+      "m_id": 6,
+      "res_id": "pump.2023_04_17",
+      "name": "syringe_pump_3",
+      "pyname": "syringe_pump_3",
+      "enabled": true,
+      "type": "poseable",
+      "subtype": "pump",
+      "tool": "None",
+      "grid": null,
+      "coord_sys": -1,
+      "x": -0.18741999999999998,
+      "y": -0.12,
+      "z": 0.46358,
+      "rot": 0.0,
+      "mates": [],
+      "channels": [
+        {
+          "axis_name": "Plunger",
+          "controller_id": 1,
+          "channel_n": 28
+        },
+        {
+          "axis_name": "Valve",
+          "controller_id": 1,
+          "channel_n": 29
+        }
+      ],
+      "kinematics": [
+        {
+          "slope": -1.133e-05,
+          "y_int": 0.034
+        },
+        {
+          "slope": 0.0031415,
+          "y_int": -1.570796
+        }
+      ],
+      "init_counts": [
+        0,
+        0
+      ],
+      "volume": 1.0,
+      "address": 2
+    },
+    "7": {
+      "m_id": 7,
+      "res_id": "pump.2023_04_17",
+      "name": "syringe_pump_4",
+      "pyname": "syringe_pump_4",
+      "enabled": true,
+      "type": "poseable",
+      "subtype": "pump",
+      "tool": "None",
+      "grid": null,
+      "coord_sys": -1,
+      "x": -0.26242000000000004,
+      "y": -0.12,
+      "z": 0.46358,
+      "rot": 0.0,
+      "mates": [],
+      "channels": [
+        {
+          "axis_name": "Plunger",
+          "controller_id": 1,
+          "channel_n": 30
+        },
+        {
+          "axis_name": "Valve",
+          "controller_id": 1,
+          "channel_n": 31
+        }
+      ],
+      "kinematics": [
+        {
+          "slope": -1.133e-05,
+          "y_int": 0.034
+        },
+        {
+          "slope": 0.0031415,
+          "y_int": -1.570796
+        }
+      ],
+      "init_counts": [
+        0,
+        0
+      ],
+      "volume": 5.0,
+      "address": 3
+    },
+    "8": {
+      "m_id": 8,
+      "res_id": "pump.2023_04_17",
+      "name": "syringe_pump_5",
+      "pyname": "syringe_pump_5",
+      "enabled": true,
+      "type": "poseable",
+      "subtype": "pump",
+      "tool": "None",
+      "grid": null,
+      "coord_sys": -1,
+      "x": -0.30742,
+      "y": -0.12,
+      "z": 0.46358,
+      "rot": 0.0,
+      "mates": [],
+      "channels": [
+        {
+          "axis_name": "Plunger",
+          "controller_id": 1,
+          "channel_n": 32
+        },
+        {
+          "axis_name": "Valve",
+          "controller_id": 1,
+          "channel_n": 33
+        }
+      ],
+      "kinematics": [
+        {
+          "slope": -1.133e-05,
+          "y_int": 0.034
+        },
+        {
+          "slope": 0.0031415,
+          "y_int": -1.570796
+        }
+      ],
+      "init_counts": [
+        0,
+        0
+      ],
+      "volume": 1.0,
+      "address": 4
+    },
+    "9": {
+      "m_id": 9,
+      "res_id": "pump.2023_04_17",
+      "name": "syringe_pump_6",
+      "pyname": "syringe_pump_6",
+      "enabled": true,
+      "type": "poseable",
+      "subtype": "pump",
+      "tool": "None",
+      "grid": null,
+      "coord_sys": -1,
+      "x": -0.35242,
+      "y": -0.12,
+      "z": 0.46358,
+      "rot": 0.0,
+      "mates": [],
+      "channels": [
+        {
+          "axis_name": "Plunger",
+          "controller_id": 1,
+          "channel_n": 34
+        },
+        {
+          "axis_name": "Valve",
+          "controller_id": 1,
+          "channel_n": 35
+        }
+      ],
+      "kinematics": [
+        {
+          "slope": -1.133e-05,
+          "y_int": 0.034
+        },
+        {
+          "slope": 0.0031415,
+          "y_int": -1.570796
+        }
+      ],
+      "init_counts": [
+        0,
+        0
+      ],
+      "volume": 5.0,
+      "address": 5
+    },
+    "10": {
+      "res_id": "carousel.2023_04_17",
+      "name": "carousel",
+      "pyname": "carousel",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": -0.225,
+      "y": -0.075,
+      "z": 0.02,
+      "rot": 3.1416,
+      "channels": [
+        {
+          "axis_name": "Rotation",
+          "controller_id": 1,
+          "channel_n": 4
+        },
+        {
+          "axis_name": "Height",
+          "controller_id": 1,
+          "channel_n": 5
+        }
+      ]
+    },
+    "13": {
+      "res_id": "pump_shelf.2023_04_17",
+      "name": "pump_shelf",
+      "pyname": "pump_shelf",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": -0.3,
+      "y": -0.225,
+      "z": 0,
+      "rot": 0,
+      "channels": []
+    },
+    "14": {
+      "res_id": "rack_48x15ml_tube.2024_10_10",
+      "name": "rack_left",
+      "pyname": "rack_left",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.075,
+      "y": 0.1485,
+      "z": 0.0,
+      "rot": 1.5707963267948966,
+      "channels": [],
+      "fill_range": "0-47",
+      "moveable_res_id": "vial_15ml_tube.2024_10_10"
+    },
+    "15": {
+      "res_id": "rack_48x15ml_tube.2024_10_10",
+      "name": "rack_right",
+      "pyname": "rack_right",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": -0.1125,
+      "y": 0.15,
+      "z": 0.0,
+      "rot": 1.5707963267948966,
+      "channels": [],
+      "fill_range": "None",
+      "moveable_res_id": "vial_15ml_tube.2024_10_10"
+    },
+    "16": {
+      "res_id": "p_rack_lower.2023_04_17",
+      "name": "p_rack_lower",
+      "pyname": "p_rack_lower",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.0724,
+      "y": -0.169,
+      "z": 0.1765,
+      "rot": 0.0,
+      "channels": [],
+      "fill_range": "0-47",
+      "moveable_res_id": "pipette_LL_needle_101mm.2024_10_23"
+    },
+    "17": {
+      "res_id": "p_rack_upper.2023_04_17",
+      "name": "p_rack_upper",
+      "pyname": "p_rack_upper",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.074,
+      "y": -0.22575,
+      "z": 0.023,
+      "rot": 0.0,
+      "channels": [],
+      "fill_range": "0-47",
+      "moveable_res_id": "p_tip.2021_03_20"
+    },
+    "18": {
+      "res_id": "p_remover.2023_04_17",
+      "name": "p_remover",
+      "pyname": "p_remover",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.299,
+      "y": -0.22575,
+      "z": -0.0075,
+      "rot": 0.0,
+      "channels": []
+    },
+    "19": {
+      "res_id": "nist_reactor_block.2024_12_16",
+      "name": "reactor_0",
+      "pyname": "reactor_0",
+      "enabled": true,
+      "coord_sys": -1,
+      "x": 0.225,
+      "y": 0.0,
+      "z": 0.005,
+      "rot": 0.0,
+      "channels": []
+    }
+  },
+  "locations": {
+    "new_loc": {
+      "type": "Location",
+      "tool": 0,
+      "counts": [
+        13,
+        30167,
+        26190,
+        13906
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "home": {
+      "type": "Location",
+      "tool": 0,
+      "counts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "s_frontleft": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        -1143,
+        34216,
+        12902,
+        13358
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "sr_low": {
+      "type": "Grid",
+      "tool": 1,
+      "counts": [
+        -1267,
+        38217,
+        10018,
+        13350
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null,
+      "rotation": 0,
+      "n": [
+        16,
+        3,
+        1
+      ],
+      "pitch": [
+        9,
+        9,
+        0.0
+      ]
+    },
+    "s_clamp": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        2447,
+        5753,
+        39633,
+        130
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "s_remover": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        1914,
+        27001,
+        6843,
+        7650
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "s_remover_ap": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        1912,
+        27312,
+        7409,
+        8951
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "new_loc0": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        1902,
+        26995,
+        6838,
+        7659
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "p_up": {
+      "type": "Grid",
+      "tool": 1,
+      "counts": [
+        -1267,
+        36423,
+        6465,
+        10700
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null,
+      "rotation": 0,
+      "n": [
+        16,
+        3,
+        1
+      ],
+      "pitch": [
+        9.0,
+        9.0,
+        0.0
+      ]
+    },
+    "p_up_wp": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        -922,
+        38877,
+        20031,
+        0
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "p_remover_ap": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        1912,
+        27312,
+        7409,
+        8951
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "p_rem": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        1911,
+        27015,
+        6898,
+        8750
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "camera_pos": {
+      "type": "Location",
+      "tool": 0,
+      "counts": [
+        2156,
+        13922,
+        48487,
+        10600
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "vclamp": {
+      "type": "Location",
+      "tool": 0,
+      "counts": [
+        2481,
+        7540,
+        44004,
+        10600
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "p_remover_copy": {
+      "type": "Location",
+      "tool": 1,
+      "counts": [
+        -507,
+        26934,
+        6862,
+        8000
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null
+    },
+    "p_rack_right": {
+      "type": "Grid",
+      "tool": 1,
+      "counts": [
+        906,
+        1262,
+        17031,
+        19000
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null,
+      "rotation": 1.57,
+      "n": [
+        8,
+        6,
+        1
+      ],
+      "pitch": [
+        26.0,
+        26.0,
+        0.0
+      ]
+    },
+    "p_rack_left": {
+      "type": "Grid",
+      "tool": 1,
+      "counts": [
+        -1084,
+        39669,
+        42778,
+        19000
+      ],
+      "ik_soln": 0,
+      "reference": false,
+      "linked_parent_name": null,
+      "rotation": 1.57,
+      "n": [
+        8,
+        6,
+        1
+      ],
+      "pitch": [
+        26.0,
+        26.0,
+        0.0
+      ]
+    }
+  },
+  "sim_inputs": {
+    "GETI": {
+      "name": "get_input",
+      "channels": {
+        "0": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "1": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "2": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "3": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "4": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "5": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "6": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "7": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "8": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "9": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "10": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "11": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "12": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "13": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "14": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "15": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "16": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "17": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "18": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "19": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "20": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "21": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "22": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "23": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "24": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "25": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "26": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "27": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "28": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "29": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "30": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "31": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        }
+      }
+    },
+    "GETA": {
+      "name": "get_analog",
+      "channels": {
+        "0": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        },
+        "1": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        }
+      }
+    },
+    "GTBC": {
+      "name": "get_barcode",
+      "channels": {
+        "0": {
+          "mode": "List",
+          "list": [],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        }
+      }
+    },
+    "RDSC": {
+      "name": "read_scale",
+      "channels": {
+        "0": {
+          "mode": "List",
+          "list": [
+            [
+              0,
+              0
+            ]
+          ],
+          "rand_min": 0,
+          "rand_max": 1,
+          "expr_str": ""
+        }
+      }
+    }
+  },
+  "visionconfigs": {},
+  "visionpanes": {},
+  "version": 0.3
+}

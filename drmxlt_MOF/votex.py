@@ -1,8 +1,8 @@
 
 
 
-from drmxlt_MOF.Locator import *
-
+# from drmxlt_MOF.Locator import *
+from Locator import *
 
 
 def vortex(c, time=30,vel=50,amp=1000):

@@ -4,7 +4,7 @@ from Locator import *  # import the contents of the Locator table (View -> Locat
 c9 = NorthC9('A',network_serial="AU06D2C0")  # instantiate a C9 controller object with C9 network address A-
 t2=NorthC9('B',network=c9.network)
 p2 = NorthC9('C', network=c9.network)
-p2.activate_powder_channel(0)
+#p2.activate_powder_channel(0)
 
 from convenience import *
 import convenience
@@ -23,7 +23,7 @@ print('carousel homed; homing pumps')
 for pind in range(6):
     c9.home_pump(pind)
 
-from north_simple_camera import SimpleCamera, SimplePhoto
-import im_proc
+#from north_simple_camera import SimpleCamera, SimplePhoto
+#import im_proc
 
-cam = SimpleCamera(0)
+#cam = SimpleCamera(0)

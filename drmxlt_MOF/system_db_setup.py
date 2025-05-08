@@ -24,6 +24,10 @@ system_db['clamp_assignment'] = "Empty"
 
 system_db["reactor"] = reactor
 
+#TODO: push system db to Cordra? 
+    #This is the function that initializes the system db
+    #The main thread running the autonomous campaign simply imports this system_db object 
+
 # def update_system_db(system_db, alt_db):
 #   #Read the alt_db for addresses and use that to update system_db
 

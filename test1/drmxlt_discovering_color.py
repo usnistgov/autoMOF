@@ -217,7 +217,11 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate, show_
     B_mesh = B_mesh.reshape(-1, 1)
     C_mesh = C_mesh.reshape(-1, 1)
 
-  
+    compositions = np.hstack([A_mesh, B_mesh, C_mesh])
+    comp_2d = compositions_2d(compositions)
+
+    domain_index = np.arange(compositions.shape[0])
+
     groundtruth_RGB = mix_and_measure(compositions, domain_index, 5, simulate=True)
 
     #Choose the first random points

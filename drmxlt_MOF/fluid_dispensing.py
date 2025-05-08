@@ -72,6 +72,7 @@ def Pipette_Fluid(fluid, vol, source, destination, c, fluid_db, system_db, new_p
 
     #update fluid_db
     fluid_db[fluid]['Volume (mL)'] = fluid_db[fluid]['Volume (mL)'] - vol
+    #TODO: push fluid db to Cordra
 
     #move the arm out of the way
     c.goto_safe(home)
@@ -122,6 +123,7 @@ def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db, waste = False):
 
     #update fluid_db
     fluid_db[fluid]['Volume (mL)'] = fluid_db[fluid]['Volume (mL)'] - vol
+    #TODO: push fluid db to Cordra
 
 
 
@@ -165,3 +167,4 @@ def Purge_fluid(fluid, c, fluid_db):
     c.move_carousel(0,0) #move carousel home
     #Update fluid_db
     fluid_db[fluid]["Purged"] = True
+    #TODO: push fluid db to Cordra

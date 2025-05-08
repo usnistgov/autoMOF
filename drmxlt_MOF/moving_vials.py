@@ -4,7 +4,7 @@ import numpy as np
 # from drmxlt_MOF.Locator import *
 from Locator import *
 #TODO move reactor locations to Locator.py from Locator_supplemental.py
-from drmxlt_MOF.Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
+# from drmxlt_MOF.Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
 
 
 
@@ -44,6 +44,8 @@ def assign_sample_to_vial(Sample_ID, sample_db, system_db):
 
   else:
     raise Exception(f"Sample {Sample_ID} already assigned {current_address}")
+  #TODO: push sample db to Cordra
+  #TODO: push system db to Cordra
   
 
 def find_open_vial_rack_addresses(system_db):
@@ -264,6 +266,7 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
 
+  #TODO: push system db to Cordra
   return True
 
 
@@ -377,10 +380,11 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
       raise Exception("Invalid reactor location")
     system_db["reactor"][source[1]][source[2]]["Assignment"] = "Empty" #Tell the system_db that this reactor location is empty
 
-  if destination[0] == 5: #If destination is the syringe pumps
+  if source[0] == 5: #If source is the syringe pumps
     raise Exception("Syringe pumps not a valid source location for a sample")
   
   #TODO: push sample db to Cordra
+  #TODO: push system db to Cordra
 
   #### Destination #####
 
@@ -495,6 +499,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
     raise Exception("Syringe pumps not a valid destination for a sample")
   
   #TODO: push sample db to Cordra
+  #TODO: push system db to Cordra
 
 
 def force_Move_Vial(source, destination, c):
@@ -562,12 +567,11 @@ def force_Move_Vial(source, destination, c):
 
     else:
       raise Exception("Invalid reactor location")
-    system_db["reactor"][source[1]][source[2]]["Assignment"] = "Empty" #Tell the system_db that this reactor location is empty
+    # system_db["reactor"][source[1]][source[2]]["Assignment"] = "Empty" #Tell the system_db that this reactor location is empty
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid source location for a sample")
   
-  #TODO: push sample db to Cordra
 
   #### Destination #####
 
@@ -622,9 +626,8 @@ def force_Move_Vial(source, destination, c):
 
     else:
       raise Exception("Invalid reactor location")
-    system_db["reactor"][destination[1]][destination[2]]["Assignment"] = Sample_ID #Tell the system_db that this reactor now has the sample
+    # system_db["reactor"][destination[1]][destination[2]]["Assignment"] = Sample_ID #Tell the system_db that this reactor now has the sample
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
   
-  #TODO: push sample db to Cordra

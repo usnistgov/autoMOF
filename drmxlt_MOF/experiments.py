@@ -2,6 +2,7 @@ import numpy as np
 
 # from drmxlt_MOF.ternary_composition_utils import random_ternary_composition
 from .ternary_composition_utils import random_ternary_composition, generate_simplex_grid
+from drmxlt_MOF.op_scheduler import create_unit_ops_df, assign_reactors, define_cp_job
 
 class Experiment():
     """"Base class for all experiments"""
@@ -13,9 +14,13 @@ class Experiment():
 
     #sample db
     sample_db : dict = {}
+    #TODO: push sample db to Cordra?
+        #This is the initialization of the sample_db
 
     #fluids
     fluid_db : dict = {}
+    #TODO: push fluid db to Cordra?
+        #This is the initialization of the fluid_db
 
     def __init__(self):
         self.generate_sample_db()
@@ -33,6 +38,7 @@ class Experiment():
             sub_db = {"Sample ID": ID, "Address": address}
 
             self.sample_db[ID] = sub_db
+        #TODO: push sample db to Cordra
         
 
     def generate_sample_codes(self, existing_code_list):
@@ -90,6 +96,7 @@ class Ternary_colordemo(Experiment):
 
         for key, comp in zip(self.sample_db.keys(), compositions):
             self.sample_db[key]["TargetComposition"] = comp
+        #TODO: push sample db to Cordra
 
     
     def define_experiment_conditions(self, total_exp_vol = 10):
@@ -127,6 +134,7 @@ class Ternary_colordemo(Experiment):
             #Add that info to sample database
 
             self.sample_db[key]["Experiment Volumes (mL)"] = exp_volumes
+        #TODO: push sample db to Cordra
     
     def add_new_sample(self, compositions, total_exp_vol = 10):
         """This function will add new samples to the existing sample database"""
@@ -163,6 +171,7 @@ class Ternary_colordemo(Experiment):
             sub_db = {"Sample ID": code, "TargetComposition": comp, "Address": address}
             sub_db["Experiment Volumes (mL)"] = exp_volumes
             self.sample_db[code] = sub_db
+        #TODO: push sample db to Cordra
 
 
     def find_compositions(self, Sample_ID):
@@ -219,6 +228,7 @@ class Ternary_colordemo(Experiment):
                                 "Purg Vol.": 10,
                                 "Empty threshold": 10 # mL
                                 }
+        #TODO: push fluid db to Cordra
 
         #TODO
         # Test fluid db for:
@@ -292,6 +302,7 @@ class Cu_BTC(Experiment):
         self.initialize_fluid_db()
         self.define_experiment_conditions()
         self.initialize_reaction_conditions()
+        self.build_unit_ops_df()
 
     def initialize_reaction_conditions(self):
         temperatures = np.random.uniform(100, 300, self.initial_samples)
@@ -313,7 +324,7 @@ class Cu_BTC(Experiment):
         for key, Cu_conc in zip(self.sample_db.keys(), Cu_concentrations):
             self.sample_db[key]["Target Cu Concentration (mol/L)"] = Cu_conc
             self.sample_db[key]["Target BTC Concentration (mol/L)"] = 0.2
-
+        #TODO: push sample db to Cordra
 
     def define_experiment_conditions(self):
 
@@ -353,6 +364,7 @@ class Cu_BTC(Experiment):
             #Add that info to sample database
 
             self.sample_db[key]["Experiment Volumes (mL)"] = exp_volumes
+        #TODO: push sample db to Cordra
     
     def add_new_sample(self, Cu_concentrations):
         """This function will add new samples to the existing sample database"""
@@ -401,6 +413,7 @@ class Cu_BTC(Experiment):
             sub_db = {"Sample ID": code, "TargetComposition": comp, "Address": address}
             sub_db["Experiment Volumes (mL)"] = exp_volumes
             self.sample_db[code] = sub_db
+        #TODO: push sample db to Cordra
     
     def find_compositions(self, Sample_ID):
         return self.sample_db[Sample_ID]["Target Cu Concentration (mol/L)"]
@@ -433,6 +446,7 @@ class Cu_BTC(Experiment):
                                 "Purg Vol.": 0.3,
                                 "Empty threshold": 10 # mL
                                 }
+        #TODO: push fluid db to Cordra
 
 
 
@@ -464,3 +478,33 @@ class Cu_BTC(Experiment):
                             "Solvent Mixture": precursor_3_needed}
 
         return fluid_assignments
+    
+    def build_unit_ops_df(self):
+        #TODO pull number of reactors, centrifuge, sonicators, and postions from system_db
+
+        #Create the inital list of unit ops for each sample
+        unit_ops_df = create_unit_ops_df(self.sample_db, 
+                                         Add_flids = True, 
+                                         React = True, 
+                                         Centrifuge = False, 
+                                         Remove_supernatent = False, 
+                                         Sonicate = False)
+        
+        #Assign reactions to reactors
+        unit_ops_df, reactor_df = assign_reactors(unit_ops_df, 
+                                                  number_of_reactors = 2, 
+                                                  positions_in_reactor = 2)
+        
+        #Constratin Satisfaction problem scheduling
+        unit_ops_df, overall_time = define_cp_job(unit_ops_df, 
+                                                  reactors = 2)
+        
+        #TODO: interleave reactor pre-heating steps
+        
+
+        self.unit_ops_df = unit_ops_df
+        self.reactor_df = reactor_df
+        self.overall_time = overall_time
+        #TODO: push unit_ops_df to Cordra
+        #TODO: push reactor_df to Cordra
+        

@@ -1,0 +1,41 @@
+{
+  "res_id": "nist_reactor_block.2024_12_16",
+  "name": "NIST reactor block",
+  "py_name": "nist_reactor_block",
+  "type": "static",
+  "subtype": "None",
+  "grid": {
+    "origin": [
+      0.00975,
+      0.01825,
+      0.147,
+      0
+    ],
+    "count": [
+      4,
+      1,
+      1
+    ],
+    "pitch": [
+      0.031,
+      0.0,
+      0.0
+    ]
+  },
+  "tool": "gripper",
+  "defaults": {
+    "x": 0.075,
+    "y": -0.1125,
+    "z": 0.0,
+    "rot": 0,
+    "moveable_name": "None",
+    "fill_range": "None"
+  },
+  "links": {
+    "reactor_block": {
+      "obj_name": "reactor_block.obj",
+      "joint_settings": "base",
+      "mates": {}
+    }
+  }
+}
