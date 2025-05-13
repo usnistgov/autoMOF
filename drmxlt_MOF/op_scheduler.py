@@ -115,8 +115,8 @@ def assign_reactors(unit_ops_df, number_of_reactors, positions_in_reactor):
 
   #Create a new index column (rather than the concatenated one that cycled through each op for each sample)
   unit_ops_df = unit_ops_df.reset_index()
-  #Rename the old index colum to be the order of operations for each sample
-  unit_ops_df = unit_ops_df.rename(columns = {"index": "Op Order"})
+  # #Rename the old index colum to be the order of operations for each sample
+  # unit_ops_df = unit_ops_df.rename(columns = {"index": "Op Order"})
 
   #Get index of react ops
   list_of_react_ops = unit_ops_df.index[unit_ops_df["UnitOP"] == 'react'].tolist()
@@ -234,7 +234,13 @@ def define_cp_job(unit_ops_df,
     #TODO creat reference for order of operations:
     #Order of operations
     op_order = ["add_fluids", "move_to_reactor", "react", "move_to_centrifuge", "centrifuge", "rm_supernatent", "move_to_sonicator", "sonicate"]
-
+    unit_ops_df["Op Order"] = None
+    op_order_df_index = unit_ops_df.columns.get_loc("Op Order")
+    for i, row in unit_ops_df.iterrows():
+        op_name = row["UnitOP"]
+        op_pos = op_order.index(op_name)
+        unit_ops_df.iloc[i, op_order_df_index] = op_pos
+        
 
     #Start a container for all the jobs (a job is the collectons of each task for a sample)
     job_list = []
@@ -247,7 +253,7 @@ def define_cp_job(unit_ops_df,
 
     #Calculate the total time horizon
     horizon = int(np.ceil(np.sum(unit_ops_df["Duration (Ds)"].to_numpy())))
-    print(f"Horizon = {horizon}")
+    # print(f"Horizon = {horizon}")
 
     # Named tuple to store information about created variables.
     task_type = collections.namedtuple("task_type", "start end interval")

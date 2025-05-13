@@ -8,7 +8,7 @@ import numpy as np
 
 from drmxlt_MOF.experiments import Ternary_colordemo, Cu_BTC
 from drmxlt_MOF.system_db_setup import system_db
-from drmxlt_MOF.unit_operation import Add_fluids, Preheat_reactor, Start_reaction
+from drmxlt_MOF.unit_operation import Add_fluids, Preheat_reactor, Start_reaction, Move_to_reactor
 from drmxlt_MOF.moving_vials import Move_Sample, find_open_vial_rack_addresses
 
 from north import NorthC9
@@ -38,18 +38,25 @@ for key in example.sample_db.keys():
     list_of_samples.append(example.sample_db[key]["Sample ID"])
 
 # print(list_of_samples[0])
-for i, sample in enumerate(list_of_samples[0:2]):
+# for i, sample in enumerate(list_of_samples[0:2]):
+for i, sample in enumerate(list_of_samples):
     print(sample)
+    
+    #Add precursors
     Add_fluids(sample, c9, system_db, example)
+    #Move to reactor
+    Move_to_reactor(sample, c9, system_db, example)
     
-    possible_destinations = find_open_vial_rack_addresses(system_db)
-    destination = possible_destinations[0,:]
-    Move_Sample(sample, destination, example.sample_db, system_db, c9)
-    
-    reactor_zip = np.array([4,0,i])
+    #Pre heat reactor
+    reactor_zip = np.array([4,0,0])
     Preheat_reactor(sample, reactor_zip, c9, t2, system_db, example)
+    #Do the reaction
+    Start_reaction(sample, c9, t2, system_db, example)
     
-    Start_reaction(sample, reactor_zip, c9, t2, system_db, example)
+    #Move back to vial rack
+    destination = find_open_vial_rack_addresses(system_db)
+#     destination = possible_destinations[0,:]
+    Move_Sample(sample, destination, example.sample_db, system_db, c9)
     
     
     
@@ -68,11 +75,11 @@ for i, sample in enumerate(list_of_samples[0:2]):
 # open_vial_positions = find_open_vial_rack_addresses(system_db)
 # print("checking open positions after moving back to the rack")
 # print(open_vial_positions)
-
-    
-print(example.sample_db)
-print("\n")
-print(example.fluid_db)
-print("\n")
-print(system_db)
+# 
+#     
+# print(example.sample_db)
+# print("\n")
+# print(example.fluid_db)
+# print("\n")
+# print(system_db)
 

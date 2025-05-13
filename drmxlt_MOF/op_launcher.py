@@ -68,6 +68,43 @@ def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
     #     Sonicate(Sample_ID, c, system_db, experiment)
     #     event.set()
 
+class blocking_event():
+    """Dummny class object to conviently re-use op_event function without all the event scheduling"""
+
+    def set(self):
+        pass
+
+def execute_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
+   """Function to read in the unit_ops_df
+   pull out the names and schedule of each unit op
+   and build a scheduler that launches those at the right time"""
+
+   print("Launching Ops") 
+
+   op_start_times = unit_ops_df["Start Time (Ds)"].to_list()
+   op_start_times *= 10 #convert start times from Ds to s
+
+   op_list = unit_ops_df["UnitOP"].to_list()
+
+   sample_list = unit_ops_df["Sample Name"].to_list()
+
+   event_list = [blocking_event() for i in range(len(op_list))]
+
+   start_time = datetime.now()
+
+   for launch_time, op, sample, event in zip(op_start_times, op_list, sample_list, event_list):
+       launch_date = start_time + timedelta(seconds=launch_time)
+       
+
+       while True:
+            if datetime.now() > launch_date | c.sim == True:
+                print(f"Launching {sample} {op} at {launch_time}")
+                op_event(op, sample, c, t, system_db, experiment, event)
+                break
+            time.sleep(1)
+
+       
+
 
 def launch_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
    

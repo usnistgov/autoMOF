@@ -484,7 +484,7 @@ class Cu_BTC(Experiment):
 
         #Create the inital list of unit ops for each sample
         unit_ops_df = create_unit_ops_df(self.sample_db, 
-                                         Add_flids = True, 
+                                         Add_fluids = True, 
                                          React = True, 
                                          Centrifuge = False, 
                                          Remove_supernatent = False, 

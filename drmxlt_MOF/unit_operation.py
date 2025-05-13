@@ -112,6 +112,9 @@ def Move_to_reactor(Sample_ID, c, system_db, experiment):
 
 
 def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
+  if c.sim == True:
+    return
+  
   target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"]
 
   reactor_id = address[1] #Find the reactor ID from the zip code
@@ -127,6 +130,9 @@ def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
 
 # def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp = 10):
 def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
+  if c.sim == True:
+    return
+
   #TODO Find the open spot on reactor
   destination = np.array([4,0,0])
   reactor_id = destination[1]

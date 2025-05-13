@@ -96,10 +96,16 @@ def find_open_vial_rack_addresses(system_db):
   #Concatenate the free addresses from both racks
   free_addresses = np.concatenate((free_left_addresses, free_right_addresses), axis = 0).astype(int)
 
-  return free_addresses
+  return free_addresses[0]
 
 
+def find_sample_in_gripper(sample_db):
+  for key in sample_db.keys():
+    address = sample_db[key]["Address"]
+    if address[0] == 2: #sample is in gripper
+      return key #return sample name
 
+  top_level_addresses = np.array(top_level_addresses)
 # Status checking
 def check_samples_in_gripper(sample_db):
   top_level_addresses = []
@@ -151,7 +157,10 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
   #Check that the gripper is available (if not move whatever is in the gripper to the rack?)
   test = full_gripper_available_check(sample_db, system_db)
   if test == False:
-    raise Exception("Gripper is not available") #TODO replace with wait to allow for parallel sample handling
+    sample_in_gripper = find_sample_in_gripper(sample_db)
+    destination_for_sample = find_open_vial_rack_addresses(system_db)
+    Move_Sample(sample_in_gripper, destination_for_sample, sample_db, system_db, c)
+    # raise Exception("Gripper is not available") #TODO replace with wait to allow for parallel sample handling
 
 
 
@@ -175,6 +184,8 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
     test1 = hat == "Off"
     #TODO take the hat off
     #TODO each position has an indepenedent hat
+
+    #TODO check if the reactor postion is occupied
 
     #check if the tempearture is low enough
 
