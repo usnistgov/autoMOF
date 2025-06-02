@@ -69,10 +69,10 @@ def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
     #     event.set()
 
 class blocking_event():
-    """Dummny class object to conviently re-use op_event function without all the event scheduling"""
+    """Dummny class object to conviently re-use op_event function without all the event threading"""
 
     def set(self):
-        pass
+        return
 
 def execute_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
    """Function to read in the unit_ops_df
