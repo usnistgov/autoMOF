@@ -212,6 +212,10 @@ def create_unit_ops_df(sample_db,
             sub_df = pd.DataFrame([[key, "sonicate", 5*6, None, 0]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
+    unit_ops_df["Status"] = "To Do"
+
+
+
     return unit_ops_df
 
 def define_cp_job(unit_ops_df,
@@ -231,7 +235,10 @@ def define_cp_job(unit_ops_df,
     Reactions that overlap on the same reactor must END at the same time. 
 
     """
-    #TODO creat reference for order of operations:
+    # #Get just the portion of the unit ops df that hasn't been scheduled yet. 
+    # unit_ops_df = full_unit_ops_df[full_unit_ops_df["Status"] == "To Do"]
+    # unit_ops_df = unit_ops_df.copy()
+ 
     #Order of operations
     op_order = ["add_fluids", "move_to_reactor", "react", "move_to_centrifuge", "centrifuge", "rm_supernatent", "move_to_sonicator", "sonicate"]
     unit_ops_df["Op Order"] = None
@@ -240,6 +247,7 @@ def define_cp_job(unit_ops_df,
         op_name = row["UnitOP"]
         op_pos = op_order.index(op_name)
         unit_ops_df.iloc[i, op_order_df_index] = op_pos
+
         
 
     #Start a container for all the jobs (a job is the collectons of each task for a sample)
@@ -410,11 +418,17 @@ def define_cp_job(unit_ops_df,
 
 
     # Precedences inside a job. (In each job, the next task must start after the previous task ends)
-    for job_id, job in enumerate(job_list):
-        for task_id in range(len(job) - 1):
-            model.add(
-                all_tasks[job_id, task_id + 1].start >= all_tasks[job_id, task_id].end
-            )
+    # Create a 2D array of [jobs, tasks]
+    job_and_task = np.array(list(all_tasks.keys()))
+    for j_and_t in job_and_task: #Iterate through the rows
+       #check to see if there's another task for this job after this current task
+       next_task = np.array([j_and_t[0], j_and_t[1]+1])
+       if any((next_task == job_and_task).all(axis = 1)): # If the next task is in the list of jobs and tasks
+          #Add the constraint that the next task must start after the current task ends
+          model.add(
+             all_tasks[next_task[0], next_task[1]].start >= all_tasks[j_and_t[0], j_and_t[1]].end
+          )
+
     #Constrain the "move_to_reactor" operations end at the same time as the start of the "react" operation
     for job_id, sample_name in enumerate(sample_names):
             #Get all the unit ops for that sample
@@ -571,10 +585,48 @@ def define_cp_job(unit_ops_df,
     else:
         print("No solution found.")
 
+    # unit_ops_df["Status"] = "To Do"
+
+    #Sort by increasing start time and secondarily larger op orders (for ops that start at the same time, prefer to keep working on the sample further along)
+    unit_ops_df = unit_ops_df.sort_values(["Start Time (Ds)", "Op Order"], ascending = [True, False])
+    unit_ops_df = unit_ops_df.reset_index(drop = True)
+
     return unit_ops_df, solver.objective_value
 
 
+def reset_schedule(full_unit_ops_df,
+                  reactors, 
+                  centrifuge = 1, 
+                  sonicator = 1,
+                  print_solution = False):
+    
+    #Find just the unit ops that have the status "To Do"
+    unit_ops_df = full_unit_ops_df[full_unit_ops_df["Status"] == "To Do"]
+    unit_ops_df = unit_ops_df.copy()
+    unit_ops_df = unit_ops_df.reset_index(drop = True)
 
+
+    #Re calculate the schedule (also resets the start time to 0)
+    unit_ops_df, overall_time = define_cp_job(unit_ops_df, reactors, centrifuge, sonicator, print_solution)
+
+    #Merge the new schedule into the original unit ops df
+    condition = full_unit_ops_df["Status"] == "To Do"
+    sub_df = full_unit_ops_df.loc[condition, :]
+    for row in sub_df.iterrows():
+        mask1 = unit_ops_df["Sample Name"] == row[1]["Sample Name"]
+        mask2 = unit_ops_df["UnitOP"] == row[1]["UnitOP"]
+        mask = mask1 & mask2
+
+        #Overwrite with the new start and end times
+        full_unit_ops_df.loc[row[0],"Start Time (Ds)"] = unit_ops_df.loc[mask,"Start Time (Ds)"].values
+        full_unit_ops_df.loc[row[0],"End Time (Ds)"] = unit_ops_df.loc[mask,"End Time (Ds)"].values
+
+    #Sort by increasing start time and secondarily larger op orders (for ops that start at the same time, prefer to keep working on the sample further along)
+    full_unit_ops_df = full_unit_ops_df.sort_values(["Status", "Start Time (Ds)", "Op Order"], ascending = [True, True, False])
+
+    return full_unit_ops_df
+    
+   
 
 
 def interleave_reactor_preheating(unit_ops_df):

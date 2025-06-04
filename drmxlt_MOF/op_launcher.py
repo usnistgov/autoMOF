@@ -97,7 +97,7 @@ def execute_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
        
 
        while True:
-            if datetime.now() > launch_date | c.sim == True:
+            if (datetime.now() > launch_date) | (c.sim == True):
                 print(f"Launching {sample} {op} at {launch_time}")
                 op_event(op, sample, c, t, system_db, experiment, event)
                 break

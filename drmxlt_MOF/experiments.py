@@ -305,9 +305,9 @@ class Cu_BTC(Experiment):
         self.build_unit_ops_df()
 
     def initialize_reaction_conditions(self):
-        temperatures = np.random.uniform(100, 300, self.initial_samples)
+        temperatures = np.random.uniform(20, 80, self.initial_samples)
 
-        times = np.random.uniform(np.log10(10), np.log10(60), self.initial_samples)
+        times = np.random.uniform(np.log10(2), np.log10(10), self.initial_samples)
         times = np.power(10, times)
 
         for key, temp, time in zip(self.sample_db.keys(), temperatures, times):
