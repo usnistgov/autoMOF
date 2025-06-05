@@ -1,7 +1,7 @@
 import time
 import numpy as np
 
-from drmxlt_MOF.moving_vials import full_gripper_available_check, Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample
+from drmxlt_MOF.moving_vials import full_gripper_available_check, Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample, find_open_reactor_addresses, find_open_vial_rack_addresses
 from drmxlt_MOF.fluid_dispensing import Fluid_dispense
 from drmxlt_MOF.dummy_c9 import tare_balance
 from drmxlt_MOF.im_proc import measure_color
@@ -46,6 +46,7 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
   c.close_clamp()
   system_db["clamp_status"] = "Closed"
   #TODO: push system db to Cordra
+  c.close_gripper()
   c.uncap()
   c.move_z(300)
   c.open_clamp()
@@ -102,29 +103,47 @@ def Measure_color(Sample_ID, c, system_db, experiment):
 
 def Move_to_reactor(Sample_ID, c, system_db, experiment):
 
-  #Pre-move check
-  #TODO: find open spot on reactor
-  destination = np.array([4, 0, 0]) #Want to move to the reactor
-  # Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+  sub_df = experiment.unit_ops_df[experiment.unit_ops_df["Sample Name"] == Sample_ID]
+  sub_sub_df = sub_df[sub_df["UnitOP"] == "react"]
+  reactor_ID = sub_sub_df["Reactor"].values[0]
 
-  #Move vial to clamp
+  position = find_open_reactor_addresses(system_db, reactor_ID)
+
+  destination = np.array([4, reactor_ID, position])
+
+  #Pre-move check
+  Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  #Move vial to reactor
+  Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+def Move_from_reactor(Sample_ID, c, system_db, experiment):
+
+  destination = find_open_vial_rack_addresses(system_db)
+
+
+  #Pre-move check
+  Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  #Move vial to reactor
   Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
 
 
-def Preheat_reactor(Sample_ID, address, c, t, system_db, experiment):
+def Preheat_reactor(Sample_ID, c, t, system_db, experiment):
   if c.sim == True:
     return
   
   target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"]
 
-  reactor_id = address[1] #Find the reactor ID from the zip code
+  sub_df = experiment.unit_ops_df[experiment.unit_ops_df["Sample Name"] == Sample_ID]
+  sub_sub_df = sub_df[sub_df["UnitOP"] == "react"]
+  reactor_ID = sub_sub_df["Reactor"].values[0]
 
-
-  print(f"Preheat_reactor channel = {reactor_id}")
-  hold_temp(t, reactor_id, target_temperature)
+  print(f"Preheat_reactor channel = {reactor_ID}")
+  hold_temp(t, reactor_ID, target_temperature)
 
   #update the system db to capture the set temperature. 
-  system_db["reactor"][reactor_id]["Set Temperature (C)"] = target_temperature
+  system_db["reactor"][reactor_ID]["Set Temperature (C)"] = target_temperature
   #TODO: push system db to Cordra
 
 
@@ -133,14 +152,14 @@ def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
   if c.sim == True:
     return
 
-  #TODO Find the open spot on reactor
-  destination = np.array([4,0,0])
-  reactor_id = destination[1]
+  sub_df = experiment.unit_ops_df[experiment.unit_ops_df["Sample Name"] == Sample_ID]
+  sub_sub_df = sub_df[sub_df["UnitOP"] == "react"]
+  reactor_id = sub_sub_df["Reactor"].values[0]
   target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"]
   reaction_time = experiment.sample_db[Sample_ID]["Reaction Time (min)"]
 
   #Reactor checks
-  ready = False
+  ready = True
   while ready == False:
     ready = Reactor_ready_check(t, reactor_id, target_temperature)
     time.sleep(20)
@@ -150,14 +169,19 @@ def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
   system_db["reactor"][reactor_id]["Meas. Temperature (C)"] = measured_tempeature
   #TODO: push system db to Cordra
 
-  #Pre-move check
-  Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
-
-  #Move vial to reactor
-  Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
-
   #Start reaction time
+  print(f"Starting reaction.  Time: {reaction_time} s;  Temp: {target_temperature} degC;")
   temp_ramp_up_hold_down(t, reactor_id, target_temperature, reaction_time, end_temp)
+  print("Started reaction!")
+
+  # #Move back to the vial rack
+  # destination = find_open_vial_rack_addresses(system_db)
+  # print("Moving back to vial rack")
+  # #Pre-move check
+  # Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  # #Move vial to reactor
+  # Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
   
 
 #TODO

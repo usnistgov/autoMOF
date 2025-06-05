@@ -99,11 +99,12 @@ def Syringe_Pump_Fluid(fluid, vol, source, c, fluid_db, waste = False):
   
 
   carousel_pos = zip_to_locator(source)
-
+  c.goto_safe(home)
   if vol > syringe_vol:
     Syringe_Pump_Fluid(fluid, syringe_vol, source, c, fluid_db, waste)
     Syringe_Pump_Fluid(fluid, vol-syringe_vol, source, c, fluid_db, waste)
 
+  
   else:
     if waste == True:
       c.move_carousel(carousel_pos[0] + waste_disposal_offset, carousel_pos[1])

@@ -4,7 +4,7 @@ reactor = {}
 
 for i in range(8):
   reactor[i] = {"Block ID": i,
-                     "Temperature": None,
+                     "Temperature (C)": None,
                      "Hat Status": "Off"}
 
   for j in range(4):
@@ -17,5 +17,5 @@ reactor
 def measure_reactor_temp(c, system_db, reactor_id):
   #TODO change reactor to t9 controler
   temp = c.read_reactor(reactor_id)
-  system_db["reactor"][reactor_id]["Temperature"] = temp
+  system_db["reactor"][reactor_id]["Temperature (C)"] = temp
   return temp

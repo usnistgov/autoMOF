@@ -46,7 +46,23 @@ def assign_sample_to_vial(Sample_ID, sample_db, system_db):
     raise Exception(f"Sample {Sample_ID} already assigned {current_address}")
   #TODO: push sample db to Cordra
   #TODO: push system db to Cordra
-  
+
+
+def find_open_reactor_addresses(system_db, reactor):
+  reactor_df = system_db["reactor"][reactor]
+
+  position_keys = [item for item in list(reactor_df.keys()) if isinstance(item, int)]
+
+  for position in position_keys:
+    occ = reactor_df[position]["Assignment"]
+
+    if occ == "Empty":
+      return position
+    
+
+
+
+
 
 def find_open_vial_rack_addresses(system_db):
   loaded_rack_left = system_db["loaded_rack_left"]
@@ -158,9 +174,12 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
   test = full_gripper_available_check(sample_db, system_db)
   if test == False:
     sample_in_gripper = find_sample_in_gripper(sample_db)
-    destination_for_sample = find_open_vial_rack_addresses(system_db)
-    Move_Sample(sample_in_gripper, destination_for_sample, sample_db, system_db, c)
-    # raise Exception("Gripper is not available") #TODO replace with wait to allow for parallel sample handling
+    if sample_in_gripper == Sample_ID:
+      None
+    else:
+      destination_for_sample = find_open_vial_rack_addresses(system_db)
+      Move_Sample(sample_in_gripper, destination_for_sample, sample_db, system_db, c)
+      # raise Exception("Gripper is not available") #TODO replace with wait to allow for parallel sample handling
 
 
 
@@ -172,6 +191,7 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
     None
 
   if source[0] == 3: # If sample is in the clamp
+    c.move_carousel(0,0)
     clamp_open = system_db["clamp_status"]
     if clamp_open == "Closed": #if the clamp is closed, open it.
       c.open_clamp()
@@ -190,7 +210,10 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
     #check if the tempearture is low enough
 
     temp = system_db['reactor'][source[1]]["Temperature (C)"]
-    test2 = temp < hot_load_temperature_threshold
+    if temp == None:
+      test2 = True
+    elif temp != None:
+      test2 = temp < hot_load_temperature_threshold
 
     reactor_ready = test1 and test2
 
@@ -254,6 +277,8 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
     if clamp_open == "Closed": #if the clamp is closed, open it.
       c.open_clamp()
       system_db["clamp_status"] = "Open"
+    
+    c.move_carousel(0,0)
 
   if destination[0] == 4: #If destination is in a reactor
     #check if reactor hat is off
@@ -261,8 +286,11 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
     test1 = hat == "Off"
 
     #check if the tempearture is low enough
-    temp = system_db['reactor'][destination[1]]["Temperature"]
-    test2 = temp < hot_load_temperature_threshold 
+    temp = system_db['reactor'][destination[1]]["Temperature (C)"]
+    if temp == None:
+      test2 = True
+    else:
+      test2 = temp < hot_load_temperature_threshold 
 
     reactor_ready = test1 and test2
 
@@ -333,7 +361,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif source[1] == 1: #If sample is in reactor 1
       # c.goto_safe(reactor_1[source[2]])
-      c.goto_safe(react1[source[2]])
+      c.goto_safe(reactor_1[source[2]])
       c.close_gripper()
       system_db['gripper_status'] = "Closed"
       system_db["gripper_occupied"] = True
@@ -448,7 +476,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
     elif destination[1] == 1: #If destination is reactor 1
       # c.goto_safe(reactor_1[destination[2]])
-      c.goto_safe(react1[destination[2]])
+      c.goto_safe(reactor_1[destination[2]])
       c.open_gripper()
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False

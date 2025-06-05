@@ -194,6 +194,9 @@ def create_unit_ops_df(sample_db,
             sub_df = pd.DataFrame([[key, "react", time*6, None, temp]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
+            sub_df = pd.DataFrame([[key, "move_from_reactor", 0.5*6, None, 0]], columns = header)
+            unit_ops_df = pd.concat([unit_ops_df, sub_df])
+
         if Centrifuge == True:
             sub_df = pd.DataFrame([[key, "move_to_centrifuge", 0.5*6, None, 0]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
@@ -240,7 +243,7 @@ def define_cp_job(unit_ops_df,
     # unit_ops_df = unit_ops_df.copy()
  
     #Order of operations
-    op_order = ["add_fluids", "move_to_reactor", "react", "move_to_centrifuge", "centrifuge", "rm_supernatent", "move_to_sonicator", "sonicate"]
+    op_order = ["add_fluids", "move_to_reactor", "react","move_from_reactor", "move_to_centrifuge", "centrifuge", "rm_supernatent", "move_to_sonicator", "sonicate"]
     unit_ops_df["Op Order"] = None
     op_order_df_index = unit_ops_df.columns.get_loc("Op Order")
     for i, row in unit_ops_df.iterrows():
@@ -323,6 +326,20 @@ def define_cp_job(unit_ops_df,
                 task_id = op_order.index("react")
                 # task tuple: (machine id, duration)
                 task = (task_df[1]["Reactor"] + 1, int(np.ceil(task_df[1]["Duration (Ds)"]))) #use the reactor
+                task_list.append(task)
+
+                machine, duration = task #Unpack the tuple
+                suffix = f"_{job_id}_{task_id}" #Create suffics for the variables
+                start_var = model.new_int_var(0, horizon, "start" + suffix) #Start of this task can be anywhere between 0 and horizon
+                end_var = model.new_int_var(0, horizon, "end" + suffix) #End of this task can be anywhere between 0 and horizon
+                interval_var = model.new_interval_var(start_var, duration, end_var, "interval" + suffix) #Model the interval between start and end
+                all_tasks[job_id, task_id] = task_type(start=start_var, end=end_var, interval=interval_var) #Add this task to dictionary of all tasks
+                machine_to_intervals[machine].append(interval_var) #Add the interval to the list of tasks for this machine
+            
+            elif operation == "move_from_reactor":
+                task_id = op_order.index("move_from_reactor")
+                # task tuple: (machine id, duration)
+                task = (0, int(np.ceil(task_df[1]["Duration (Ds)"]))) #use the arm&clamp to move the sample from the reactor
                 task_list.append(task)
 
                 machine, duration = task #Unpack the tuple
@@ -441,6 +458,22 @@ def define_cp_job(unit_ops_df,
               if operation == "move_to_reactor":
                 task_id = op_order.index("move_to_reactor")
                 react_task_id = op_order.index("react")
+                model.add(
+                  all_tasks[job_id, task_id].end == all_tasks[job_id, react_task_id].start
+                )
+
+    #Constrain the "react" operations end at the same time as the start of the "move_from_reactor" operation
+    for job_id, sample_name in enumerate(sample_names):
+            #Get all the unit ops for that sample
+            sub_df = unit_ops_df[unit_ops_df["Sample Name"] == sample_name]
+
+            for task_df in sub_df.iterrows():
+
+              operation = task_df[1]["UnitOP"]
+
+              if operation == "react":
+                task_id = op_order.index("react")
+                react_task_id = op_order.index("move_from_reactor")
                 model.add(
                   all_tasks[job_id, task_id].end == all_tasks[job_id, react_task_id].start
                 )

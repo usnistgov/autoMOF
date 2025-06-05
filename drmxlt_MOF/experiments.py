@@ -305,7 +305,7 @@ class Cu_BTC(Experiment):
         self.build_unit_ops_df()
 
     def initialize_reaction_conditions(self):
-        temperatures = np.random.uniform(20, 80, self.initial_samples)
+        temperatures = np.random.uniform(40, 80, self.initial_samples)
 
         times = np.random.uniform(np.log10(2), np.log10(10), self.initial_samples)
         times = np.power(10, times)
@@ -423,9 +423,9 @@ class Cu_BTC(Experiment):
 
         self.fluid_db["Cu Solution"] = {"Fluid Name": "Cu Solution",
                                 "Volume (mL)": 300,
-                                "Address": np.array([5, 3, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
+                                "Address": np.array([5, 2, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 0.3,
+                                "Purg Vol.": 1.6,
                                 "Empty threshold": 10, # mL
                                 "Concentration (mol/L)": 3.0
                                 }
@@ -434,7 +434,7 @@ class Cu_BTC(Experiment):
                                 "Volume (mL)": 300,
                                 "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 0.3,
+                                "Purg Vol.": 1.8,
                                 "Empty threshold": 10, # mL
                                 "Concentration (mol/L)": 0.2
                                 }
@@ -443,7 +443,7 @@ class Cu_BTC(Experiment):
                                 "Volume (mL)": 300,
                                 "Address": np.array([5, 5, 0]), # Syringe Pump, Pump index 3, splitter valve position 0
                                 "Purged": False,
-                                "Purg Vol.": 0.3,
+                                "Purg Vol.": 1.7,
                                 "Empty threshold": 10 # mL
                                 }
         #TODO: push fluid db to Cordra

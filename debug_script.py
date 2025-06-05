@@ -20,7 +20,7 @@ from north import NorthC9
 c9 = NorthC9(addr="sim")
 c9 = NorthC9('A',network_serial="AU06D2C0")  # instantiate a C9 controller object with C9 network address A-
 
-c9.default_vel=20
+c9.default_vel=15
 
 t2=NorthC9('B',network=c9.network)
 # 
@@ -32,24 +32,26 @@ example = Cu_BTC()
 
 unit_ops_df = create_unit_ops_df(example.sample_db, True, True, False, False, False)
 
-unit_ops_df, reactor_df = assign_reactors(unit_ops_df, 2, 4)
+unit_ops_df, reactor_df = assign_reactors(unit_ops_df, 1, 4)
 
-unit_ops_df, overall_time = define_cp_job(unit_ops_df, 2)
+unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)
 
-unit_ops_df.loc[0, "Status"] = "Completed"
-unit_ops_df.loc[1, "Status"] = "Completed"
-unit_ops_df.loc[2, "Status"] = "Completed"
+# unit_ops_df.loc[0, "Status"] = "Completed"
+# unit_ops_df.loc[1, "Status"] = "Completed"
+# unit_ops_df.loc[2, "Status"] = "Completed"
 
-unit_ops_df = reset_schedule(unit_ops_df, 2)
+# unit_ops_df = reset_schedule(unit_ops_df, 1)
 
-unit_ops_df.loc[3, "Status"] = "Completed"
+# unit_ops_df.loc[3, "Status"] = "Completed"
 
-unit_ops_df = reset_schedule(unit_ops_df, 2)
+# unit_ops_df = reset_schedule(unit_ops_df, 1)
 
 print(unit_ops_df)
+print(system_db["reactor"][0])
+example.unit_ops_df = unit_ops_df
 
-
-
+launch_scheduled_ops(c9, t2, system_db, example)
+# execute_scheduled_ops(c9, t2, system_db, example)
 
 ##################################
 # full_unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)

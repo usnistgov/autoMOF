@@ -8,7 +8,8 @@ from drmxlt_MOF.unit_operation import (Add_fluids,
                                        Measure_color, 
                                        Preheat_reactor,
                                        Move_to_reactor, 
-                                       Start_reaction, 
+                                       Start_reaction,
+                                       Move_from_reactor, 
                                     #    Move_to_centrifuge,
                                     #    Centrifuge,
                                     #    RM_supernatent,
@@ -19,7 +20,7 @@ from drmxlt_MOF.unit_operation import (Add_fluids,
 def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
     """Launch a particular unit op by name,
     and start an event."""
-
+ 
     if op_name == "add_fluids":
         new_sample = True
         if len(args) > 0:
@@ -48,6 +49,10 @@ def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
         Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp)
         event.set()
 
+    elif op_name == "move_from_reactor":
+        Move_from_reactor(Sample_ID, c, system_db, experiment)
+        event.set()
+
     # elif op_name == "move_to_centrifuge":
     #     Move_to_centrifuge(Sample_ID, c, system_db, experiment)
     #     event.set()
@@ -74,15 +79,17 @@ class blocking_event():
     def set(self):
         return
 
-def execute_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
+def execute_scheduled_ops(c, t, system_db, experiment):
    """Function to read in the unit_ops_df
    pull out the names and schedule of each unit op
    and build a scheduler that launches those at the right time"""
+   unit_ops_df = experiment.unit_ops_df
 
    print("Launching Ops") 
 
    op_start_times = unit_ops_df["Start Time (Ds)"].to_list()
-   op_start_times *= 10 #convert start times from Ds to s
+   op_start_times = [time * 10 for time in op_start_times] #convert start times from Ds to s
+
 
    op_list = unit_ops_df["UnitOP"].to_list()
 
@@ -100,22 +107,25 @@ def execute_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
             if (datetime.now() > launch_date) | (c.sim == True):
                 print(f"Launching {sample} {op} at {launch_time}")
                 op_event(op, sample, c, t, system_db, experiment, event)
+                print(system_db["left_rack_assignments"][0])
+                print(system_db["reactor"][0])
                 break
             time.sleep(1)
 
        
 
 
-def launch_scheduled_ops(unit_ops_df, c, t, system_db, experiment):
+def launch_scheduled_ops(c, t, system_db, experiment):
    
    """Function to read in the unit_ops_df
    pull out the names and schedule of each unit op
    and build a scheduler that launches those at the right time"""
+   unit_ops_df = experiment.unit_ops_df
 
 
    op_start_times = unit_ops_df["Start Time (Ds)"].to_list()
-   op_start_times *= 10 #convert start times from Ds to s
-
+   op_start_times = [time * 10 for time in op_start_times] #convert start times from Ds to s
+   
    op_list = unit_ops_df["UnitOP"].to_list()
 
    sample_list = unit_ops_df["Sample Name"].to_list()
