@@ -52,6 +52,7 @@ example.unit_ops_df = unit_ops_df
 
 launch_scheduled_ops(c9, t2, system_db, example)
 # execute_scheduled_ops(c9, t2, system_db, example)
+t2.set_temp(0,0)
 
 ##################################
 # full_unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)

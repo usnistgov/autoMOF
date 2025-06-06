@@ -7,8 +7,9 @@ from drmxlt_MOF.dummy_c9 import tare_balance
 from drmxlt_MOF.im_proc import measure_color
 from drmxlt_MOF.starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check
 
+
 # from drmxlt_MOF.Locator import camera_pos
-from Locator import camera_pos, clamp
+from Locator import camera_pos, clamp, home
 
 def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
   #TODO: Add flag for sensitive dispensing (precursors, vs washing steps)
@@ -117,6 +118,8 @@ def Move_to_reactor(Sample_ID, c, system_db, experiment):
   #Move vial to reactor
   Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
 
+  c.goto_safe(home)
+
 def Move_from_reactor(Sample_ID, c, system_db, experiment):
 
   destination = find_open_vial_rack_addresses(system_db)
@@ -171,7 +174,8 @@ def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
 
   #Start reaction time
   print(f"Starting reaction.  Time: {reaction_time} s;  Temp: {target_temperature} degC;")
-  temp_ramp_up_hold_down(t, reactor_id, target_temperature, reaction_time, end_temp)
+  # temp_ramp_up_hold_down(t, reactor_id, target_temperature, reaction_time, end_temp)
+  hold_temp(t, reactor_id, target_temperature)
   print("Started reaction!")
 
   # #Move back to the vial rack
