@@ -507,6 +507,7 @@ def define_cp_job(unit_ops_df,
 
         react_task_id = op_order.index("react")
 
+        
         for i in sample_name_index:
           for j in sample_name_index:
             if i != j:
@@ -514,6 +515,8 @@ def define_cp_job(unit_ops_df,
                 model.add(
                     all_tasks[i, react_task_id].end == all_tasks[j, react_task_id].end #Job i, task (react) must end at the same time as Job j, task (react)
                 )
+
+
         #Get the piece of the dataframe that is at that temperature
         sub_sub_df = sub_df[sub_df["Reactor Temperature (C)"] == temp]
         #Sort that piece of dataframe by the reactor duration

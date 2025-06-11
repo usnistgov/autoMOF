@@ -8,7 +8,8 @@ class Experiment():
     """"Base class for all experiments"""
     
     #number of initial samples
-    initial_samples : int = 3
+    initial_samples : int = 12
+    batch_size : int = 1
     #sample code length in number of characters
     code_length : int = 4 
 
@@ -302,12 +303,17 @@ class Cu_BTC(Experiment):
         self.initialize_fluid_db()
         self.define_experiment_conditions()
         self.initialize_reaction_conditions()
-        self.build_unit_ops_df()
+        # self.build_unit_ops_df()
 
     def initialize_reaction_conditions(self):
-        temperatures = np.random.uniform(40, 80, self.initial_samples)
+        entries = self.initial_samples // self.batch_size
 
-        times = np.random.uniform(np.log10(2), np.log10(10), self.initial_samples)
+        # temperatures = np.random.uniform(40, 80, self.initial_samples)
+        temperatures = np.random.uniform(60, 80, entries)
+        temperatures = np.repeat(temperatures, self.batch_size) #NOTE only works if total_samples is divisible by batch_size
+
+        times = np.random.uniform(np.log10(180), np.log10(1080), self.initial_samples)
+        # times = np.random.uniform(np.log10(1), np.log10(2), self.initial_samples)
         times = np.power(10, times)
 
         for key, temp, time in zip(self.sample_db.keys(), temperatures, times):
@@ -421,28 +427,28 @@ class Cu_BTC(Experiment):
 
     def initialize_fluid_db(self):
 
-        self.fluid_db["Cu Solution"] = {"Fluid Name": "Cu Solution",
-                                "Volume (mL)": 300,
-                                "Address": np.array([5, 2, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
-                                "Purged": False,
+        self.fluid_db["Cu Solution"] = {"Fluid Name": "Cu Nitrate",
+                                "Volume (mL)": 93.6,
+                                "Address": np.array([5, 3, 0]), # Syringe Pump, Pump index, splitter valve position
+                                "Purged": True,
                                 "Purg Vol.": 1.6,
                                 "Empty threshold": 10, # mL
-                                "Concentration (mol/L)": 3.0
+                                "Concentration (mol/L)": 5.355568525
                                 }
         
         self.fluid_db["BTC Solution"] = {"Fluid Name": "BTC Solution",
-                                "Volume (mL)": 300,
-                                "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index 1, splitter valve position 0
-                                "Purged": False,
+                                "Volume (mL)": 193.2,
+                                "Address": np.array([5, 5, 0]), # Syringe Pump, Pump index, splitter valve position
+                                "Purged": True,
                                 "Purg Vol.": 1.8,
                                 "Empty threshold": 10, # mL
-                                "Concentration (mol/L)": 0.2
+                                "Concentration (mol/L)": 4.235372916
                                 }
 
         self.fluid_db["Solvent Mixture"] = {"Fluid Name": "Water",
-                                "Volume (mL)": 300,
-                                "Address": np.array([5, 5, 0]), # Syringe Pump, Pump index 3, splitter valve position 0
-                                "Purged": False,
+                                "Volume (mL)": 369.6,
+                                "Address": np.array([5, 4, 0]), # Syringe Pump, Pump index, splitter valve position
+                                "Purged": True,
                                 "Purg Vol.": 1.7,
                                 "Empty threshold": 10 # mL
                                 }

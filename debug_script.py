@@ -29,12 +29,16 @@ t2=NorthC9('B',network=c9.network)
 # force_Move_Vial(source, destination, c9)
 
 example = Cu_BTC()
+# print(example.sample_db)
 
 unit_ops_df = create_unit_ops_df(example.sample_db, True, True, False, False, False)
+print("Created Unit Ops DF")
 
 unit_ops_df, reactor_df = assign_reactors(unit_ops_df, 1, 4)
+print("Assigned Reactors")
 
 unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)
+print("Solved Constraint Satisfaction Problem")
 
 # unit_ops_df.loc[0, "Status"] = "Completed"
 # unit_ops_df.loc[1, "Status"] = "Completed"
@@ -47,12 +51,17 @@ unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)
 # unit_ops_df = reset_schedule(unit_ops_df, 1)
 
 print(unit_ops_df)
-print(system_db["reactor"][0])
+# print(system_db["reactor"][0])
 example.unit_ops_df = unit_ops_df
 
-launch_scheduled_ops(c9, t2, system_db, example)
+print("Wating for user input")
+user_input = input("Enter your input: ")
+print("Full steam ahead!!")
+
+
+# launch_scheduled_ops(c9, t2, system_db, example)
 # execute_scheduled_ops(c9, t2, system_db, example)
-t2.set_temp(0,0)
+# t2.set_temp(0,0)
 
 ##################################
 # full_unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)

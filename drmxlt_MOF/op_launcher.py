@@ -3,6 +3,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 import time
 import threading
+import json
+import pandas as pd
 
 from drmxlt_MOF.unit_operation import (Add_fluids, 
                                        Measure_color, 
@@ -17,6 +19,31 @@ from drmxlt_MOF.unit_operation import (Add_fluids,
                                     #    Sonicate,
                                        )
 
+def write_db_files(system_db, experiment):
+    directory = "V:\\internal\\autoMOF\\Robot_Run_061125\\"
+    time_stamp = datetime.now()
+    system_db_filename = directory + f"{time_stamp}_system_db.json"
+    sample_db_filename = directory + f"{time_stamp}_sample_db.json"
+    fluid_db_filename = directory + f"{time_stamp}_fluid_db.json"
+    unitops_db_filename = directory + f"{time_stamp}_unitops_db.json"
+    reactor_db_filename = directory + f"{time_stamp}_reactor_db.json"
+    
+    file_list = [system_db_filename, 
+                 sample_db_filename, 
+                 fluid_db_filename,
+                 unitops_db_filename,
+                 reactor_db_filename]
+    data_list = [system_db,
+                 experiment.sample_db,
+                 experiment.fluid_db,
+                 experiment.unit_ops_df.to_dict(orient="records"),
+                 experiment.reactor_df.to_dict(orient="records")]
+    
+    for file, data in zip(file_list, data_list):
+        with open(file, "w") as f:
+            json.dump(data, f, indent=4)
+
+
 def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
     """Launch a particular unit op by name,
     and start an event."""
@@ -27,18 +54,22 @@ def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
             if "new_sample" in args[0].keys():
                 new_sample = args[0]["new_sample"]
         Add_fluids(Sample_ID, c, system_db, experiment, new_sample)
+        write_db_files(system_db, experiment)
         event.set()
 
     elif op_name == "measure_color":
         Measure_color(Sample_ID, c, system_db, experiment)
+        write_db_files(system_db, experiment)
         event.set()
 
     elif op_name == "preheat_reactor":
         Preheat_reactor(Sample_ID, c, t, system_db, experiment)
+        write_db_files(system_db, experiment)
         event.set()
 
     elif op_name == "move_to_reactor":
         Move_to_reactor(Sample_ID, c, system_db, experiment)
+        write_db_files(system_db, experiment)
         event.set()
 
     elif op_name == "react":
@@ -47,10 +78,12 @@ def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
             if "end_temp" in args[0].keys():
                 end_temp = args[0]["end_temp"]
         Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp)
+        write_db_files(system_db, experiment)
         event.set()
 
     elif op_name == "move_from_reactor":
         Move_from_reactor(Sample_ID, c, system_db, experiment)
+        write_db_files(system_db, experiment)
         event.set()
 
     # elif op_name == "move_to_centrifuge":
