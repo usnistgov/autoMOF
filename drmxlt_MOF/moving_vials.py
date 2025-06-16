@@ -434,7 +434,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([1, 0, destination[2]]) #tell sample_db that it's in the vial rack
-      mask = system_db["vial_rack_left_array"] == source[2]
+      mask = system_db["vial_rack_left_array"] == destination[2]
       system_db["loaded_rack_left"][mask] = 1 #Tell the system_db that this position is now loaded
       system_db["left_rack_assignments"][mask] = Sample_ID #Tell the system_db that this position now has the sample
 
@@ -444,7 +444,7 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
       system_db['gripper_status'] = "Open"
       system_db["gripper_occupied"] = False
       sample_db[Sample_ID]["Address"] = np.array([1, 1, destination[2]]) #tell sample_db that it's in the vial rack
-      mask = system_db["vial_rack_right_array"] == source[2]
+      mask = system_db["vial_rack_right_array"] == destination[2]
       system_db["loaded_rack_right"][mask] = 1 #Tell the system_db that this position is now loaded
       system_db["right_rack_assignments"][mask] = Sample_ID #Tell the system_db that this position now has the sample
 

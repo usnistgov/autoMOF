@@ -1,7 +1,7 @@
 c=None
 from Locator import *
 import numpy as np
-pump_c_pos = {5: 45, 4: 90, 3:135}
+pump_c_pos = {5: 45, 4: 90, 3:135,2:180}
 
 #dispense the full volume of a syringe pump
 
@@ -134,8 +134,7 @@ from pyzbar.pyzbar import decode
 import time
 # import cv2
 # from north_simple_camera import SimpleCamera, SimplePhoto
-#import im_proc
-
+# import im_proc
 # cam = SimpleCamera(0)
 def scan_barcode(cam, source, pickup= True, iteration = 0):
     if pickup == True:
@@ -164,7 +163,27 @@ def scan_barcode(cam, source, pickup= True, iteration = 0):
     
         
         
-
+def sample_pic_test():
+    for n in range(5):
+        c.open_gripper()
+        c.goto_safe(rack_left [n])
+        c.close_gripper()
+        c.goto_safe(camera_pos)
+        for a in [0, 90, 180, 270]:
+            ar = a*np.pi/180
+            pos = c.get_axis_position(0)
+            pos = c.counts_to_rad(0,pos)
+            c.move_axis_rad(0, ar+pos , wait=True)
+            pic=cam.capture()
+            if n==4:
+                pic.name=f'room_temp_goop_{a}deg'
+            else:
+                pic.name=f'Testrun1_vial_{n}_{a}deg'
+            pic.save()
+        c.reduce_axis_position(0)
+        c.goto_safe(rack_left [n])
+        c.open_gripper()
+    
     
     
     

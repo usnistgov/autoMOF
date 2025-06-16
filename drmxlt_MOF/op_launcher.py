@@ -5,6 +5,7 @@ import time
 import threading
 import json
 import pandas as pd
+import numpy as np
 
 from drmxlt_MOF.unit_operation import (Add_fluids, 
                                        Measure_color, 
@@ -19,9 +20,18 @@ from drmxlt_MOF.unit_operation import (Add_fluids,
                                     #    Sonicate,
                                        )
 
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
+
 def write_db_files(system_db, experiment):
     directory = "V:\\internal\\autoMOF\\Robot_Run_061125\\"
-    time_stamp = datetime.now()
+    now = datetime.now()
+    time_stamp = now.strftime("%Y_%m_%d_%H_%M_%S")
+    
     system_db_filename = directory + f"{time_stamp}_system_db.json"
     sample_db_filename = directory + f"{time_stamp}_sample_db.json"
     fluid_db_filename = directory + f"{time_stamp}_fluid_db.json"
@@ -41,10 +51,11 @@ def write_db_files(system_db, experiment):
     
     for file, data in zip(file_list, data_list):
         with open(file, "w") as f:
-            json.dump(data, f, indent=4)
+            obj=json.dumps(data, indent=4, cls = NumpyEncoder)
+            f.write(obj)
 
 
-def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
+def op_event(op_name, Sample_ID, c, t, cam, system_db, experiment, event, *args):
     """Launch a particular unit op by name,
     and start an event."""
  
@@ -53,7 +64,7 @@ def op_event(op_name, Sample_ID, c, t, system_db, experiment, event, *args):
         if len(args) > 0:
             if "new_sample" in args[0].keys():
                 new_sample = args[0]["new_sample"]
-        Add_fluids(Sample_ID, c, system_db, experiment, new_sample)
+        Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample)
         write_db_files(system_db, experiment)
         event.set()
 
@@ -112,7 +123,7 @@ class blocking_event():
     def set(self):
         return
 
-def execute_scheduled_ops(c, t, system_db, experiment):
+def execute_scheduled_ops(c, t,cam, system_db, experiment):
    """Function to read in the unit_ops_df
    pull out the names and schedule of each unit op
    and build a scheduler that launches those at the right time"""
@@ -139,7 +150,7 @@ def execute_scheduled_ops(c, t, system_db, experiment):
        while True:
             if (datetime.now() > launch_date) | (c.sim == True):
                 print(f"Launching {sample} {op} at {launch_time}")
-                op_event(op, sample, c, t, system_db, experiment, event)
+                op_event(op, sample, c, t,cam, system_db, experiment, event)
                 print(system_db["left_rack_assignments"][0])
                 print(system_db["reactor"][0])
                 break
@@ -148,7 +159,7 @@ def execute_scheduled_ops(c, t, system_db, experiment):
        
 
 
-def launch_scheduled_ops(c, t, system_db, experiment):
+def launch_scheduled_ops(c, t,cam, system_db, experiment):
    
    """Function to read in the unit_ops_df
    pull out the names and schedule of each unit op
@@ -174,7 +185,7 @@ def launch_scheduled_ops(c, t, system_db, experiment):
        scheduler.add_job(op_event, 
                          "date", 
                          run_date=launch_date,
-                         args=[op, sample, c, t, system_db, experiment, event])
+                         args=[op, sample, c, t,cam, system_db, experiment, event])
        
 
    scheduler.start()

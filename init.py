@@ -10,8 +10,8 @@ from convenience import *
 import convenience
 convenience.c=c9
 
-from north_simple_camera import SimpleCamera, SimplePhoto
-import im_proc
+#from north_simple_camera import SimpleCamera, SimplePhoto
+#import im_proc
  
 c9.default_vel=5
 print('homing robot')

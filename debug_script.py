@@ -16,13 +16,24 @@ from drmxlt_MOF.system_db_setup import system_db
 from drmxlt_MOF.op_scheduler import create_unit_ops_df, assign_reactors, define_cp_job, reset_schedule
 from drmxlt_MOF.op_launcher import launch_scheduled_ops, execute_scheduled_ops
 from north import NorthC9
+import json
 
+from north_simple_camera import SimpleCamera, SimplePhoto
+# class NumpyEncoder(json.JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, np.ndarray):
+#             return obj.tolist()
+#         return super().default(obj)
+    
+    
 c9 = NorthC9(addr="sim")
 c9 = NorthC9('A',network_serial="AU06D2C0")  # instantiate a C9 controller object with C9 network address A-
 
 c9.default_vel=15
 
 t2=NorthC9('B',network=c9.network)
+
+cam = SimpleCamera(0)
 # 
 # source = np.array([1,0,0])
 # destination = np.array([3,0,0])
@@ -36,6 +47,7 @@ print("Created Unit Ops DF")
 
 unit_ops_df, reactor_df = assign_reactors(unit_ops_df, 1, 4)
 print("Assigned Reactors")
+
 
 unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)
 print("Solved Constraint Satisfaction Problem")
@@ -53,15 +65,24 @@ print("Solved Constraint Satisfaction Problem")
 print(unit_ops_df)
 # print(system_db["reactor"][0])
 example.unit_ops_df = unit_ops_df
+example.reactor_df = reactor_df
+
+# directory = "V:\\internal\\autoMOF\\Robot_Run_061125\\"
+# file = directory + "test_file.json"
+# data = system_db
+#data = unit_ops_df.to_dict(orient = "records")
+# with open(file, "w") as f:
+#             obj=json.dumps(data, indent=4, cls = NumpyEncoder)
+#             f.write(obj)
 
 print("Wating for user input")
 user_input = input("Enter your input: ")
 print("Full steam ahead!!")
 
 
-# launch_scheduled_ops(c9, t2, system_db, example)
+launch_scheduled_ops(c9, t2, cam, system_db, example)
 # execute_scheduled_ops(c9, t2, system_db, example)
-# t2.set_temp(0,0)
+t2.set_temp(0,0)
 
 ##################################
 # full_unit_ops_df, overall_time = define_cp_job(unit_ops_df, 1)

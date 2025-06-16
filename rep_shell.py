@@ -11,10 +11,10 @@ from convenience import *
 import convenience
 convenience.c=c9
 
-from north_simple_camera import SimpleCamera, SimplePhoto
-import im_proc
+#from north_simple_camera import SimpleCamera, SimplePhoto
+#import im_proc
 
 # c9.goto_safe(barcode_pos)
-cam = SimpleCamera(0)
+#cam = SimpleCamera(0)
 
 # scan_barcode(cam, rack_left[2], pickup = True)

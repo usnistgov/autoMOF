@@ -6,12 +6,45 @@ from drmxlt_MOF.fluid_dispensing import Fluid_dispense
 from drmxlt_MOF.dummy_c9 import tare_balance
 from drmxlt_MOF.im_proc import measure_color
 from drmxlt_MOF.starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check
-
+from pyzbar.pyzbar import decode
 
 # from drmxlt_MOF.Locator import camera_pos
-from Locator import camera_pos, clamp, home
+from Locator import camera_pos, clamp, home, barcode_pos
 
-def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
+
+def scan_barcode(Sample_ID, sample_db, c, cam, source=None, pickup= True, iteration = 0):
+
+    if pickup == True:
+        c.goto_safe(source)
+        c.close_gripper()
+    
+    c.goto_safe(barcode_pos)
+    
+    time.sleep(1)
+    pic=cam.capture()
+    time.sleep(1)
+    pic.show()
+    bcnum=decode(pic.img)
+    if c.sim == True:
+      bcnum = np.random.random()
+      
+    
+    if iteration > 4:
+        raise Exception("No Barcode detected")
+    
+    if not bcnum:
+        print('no barcode detected')
+        pos = c.get_axis_position(0)
+        pos = c.counts_to_rad(0,pos)
+        c.move_axis_rad(0, pos+2*np.pi/4, wait=True)
+        scan_barcode(Sample_ID, sample_db, c, cam, source, pickup= False, iteration = iteration+1)
+    else:
+        c.reduce_axis_position(0)
+        print(f"barcode = {bcnum}")
+        sample_db[Sample_ID]["Barcode"] = bcnum
+
+
+def Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample= True):
   #TODO: Add flag for sensitive dispensing (precursors, vs washing steps)
 
 
@@ -32,6 +65,10 @@ def Add_fluids(Sample_ID, c, system_db, experiment, new_sample= True):
   #Assign the new sample to the vial
   if new_sample == True:
     assign_sample_to_vial(Sample_ID, experiment.sample_db, system_db)
+    destination = np.array([2, 0, 0])
+    Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+    Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
+    scan_barcode(Sample_ID, experiment.sample_db, c, cam, pickup=False)
 
   #Pre-move check
   destination = np.array([3, 0, 0]) #Want to move to the clamp
