@@ -312,13 +312,13 @@ class Cu_BTC(Experiment):
         temperatures = np.random.uniform(60, 80, entries)
         temperatures = np.repeat(temperatures, self.batch_size) #NOTE only works if total_samples is divisible by batch_size
 
-        # times = np.random.uniform(np.log10(180), np.log10(1440), self.initial_samples)
+        times = np.random.uniform(np.log10(180), np.log10(1440), self.initial_samples)
         times = np.random.uniform(np.log10(10), np.log10(20), self.initial_samples)
         times = np.power(10, times)
         arg = np.argmin(temperatures)
         arg2 = np.argsort(temperatures)[1]
-        # times[arg] = 17.5 * 60 #17.5 hours --> mins
-        # times[arg2] = 17.4 * 60 #17 hours --> mins
+        times[arg] = 17.5 * 60 #17.5 hours --> mins
+        times[arg2] = 17.4 * 60 #17 hours --> mins
 
         for key, temp, time in zip(self.sample_db.keys(), temperatures, times):
             self.sample_db[key]["Temperature (C)"] = temp
@@ -432,7 +432,7 @@ class Cu_BTC(Experiment):
     def initialize_fluid_db(self):
 
         self.fluid_db["Cu Solution"] = {"Fluid Name": "Cu Nitrate",
-                                "Volume (mL)": 75.0,
+                                "Volume (mL)": 65.0,
                                 "Address": np.array([5, 2, 0]), # Syringe Pump, Pump index, splitter valve position
                                 "Purged": True,
                                 "Purg Vol.": 1.6,
@@ -441,7 +441,7 @@ class Cu_BTC(Experiment):
                                 }
         
         self.fluid_db["BTC Solution"] = {"Fluid Name": "BTC Solution",
-                                "Volume (mL)": 175.0,
+                                "Volume (mL)": 135.0,
                                 "Address": np.array([5, 5, 0]), # Syringe Pump, Pump index, splitter valve position
                                 "Purged": True,
                                 "Purg Vol.": 1.8,

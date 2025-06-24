@@ -427,7 +427,6 @@ def define_cp_job(unit_ops_df,
 
 
     ##### Add constraints to the model ####
-
     # For the Arm&Clamp, sonicator, and centrifuge add no_overlap constraint
     model.add_no_overlap(machine_to_intervals[0]) #Arm&Clamp no_overlap constraint
     model.add_no_overlap(machine_to_intervals[reactors + 1]) #Centrifuge no_overlap constraint
@@ -461,8 +460,22 @@ def define_cp_job(unit_ops_df,
                 model.add(
                   all_tasks[job_id, task_id].end == all_tasks[job_id, react_task_id].start
                 )
+    #Constrain the "add_fluids" to be within 42 Ds of the start of the "react"
+    for job_id, sample_name in enumerate(sample_names):
+            #Get all the unit ops for that sample
+            sub_df = unit_ops_df[unit_ops_df["Sample Name"] == sample_name]
+            for task_df in sub_df.iterrows():
+              operation = task_df[1]["UnitOP"]
+
+              if operation == "add_fluids":
+                task_id = op_order.index("add_fluids")
+                react_task_id = op_order.index("react")
+                model.add(
+                  all_tasks[job_id, task_id].start + 42 > all_tasks[job_id, react_task_id].start
+                )
 
     #Constrain the "react" operations end at the same time as the start of the "move_from_reactor" operation
+    # or at least within 4 mins (12 Ds)
     for job_id, sample_name in enumerate(sample_names):
             #Get all the unit ops for that sample
             sub_df = unit_ops_df[unit_ops_df["Sample Name"] == sample_name]
@@ -475,7 +488,7 @@ def define_cp_job(unit_ops_df,
                 task_id = op_order.index("react")
                 react_task_id = op_order.index("move_from_reactor")
                 model.add(
-                  all_tasks[job_id, task_id].end == all_tasks[job_id, react_task_id].start
+                  all_tasks[job_id, task_id].end > all_tasks[job_id, react_task_id].start - 12
                 )
 
               

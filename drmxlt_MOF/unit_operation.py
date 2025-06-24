@@ -18,7 +18,8 @@ def scan_barcode(Sample_ID, sample_db, c, cam, source=None, pickup= True, iterat
         c.goto_safe(source)
         c.close_gripper()
     
-    c.goto_safe(barcode_pos)
+    if iteration==0:
+      c.goto_safe(barcode_pos)
     
     time.sleep(1)
     pic=cam.capture()
@@ -41,7 +42,8 @@ def scan_barcode(Sample_ID, sample_db, c, cam, source=None, pickup= True, iterat
     else:
         c.reduce_axis_position(0)
         print(f"barcode = {bcnum}")
-        sample_db[Sample_ID]["Barcode"] = bcnum
+        vnum=int(bcnum[0].data)
+        sample_db[Sample_ID]["Barcode"] = vnum
 
 
 def Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample= True):
