@@ -313,7 +313,7 @@ class Cu_BTC(Experiment):
         temperatures = np.repeat(temperatures, self.batch_size) #NOTE only works if total_samples is divisible by batch_size
 
         times = np.random.uniform(np.log10(180), np.log10(1440), self.initial_samples)
-        times = np.random.uniform(np.log10(10), np.log10(20), self.initial_samples)
+        # times = np.random.uniform(np.log10(10), np.log10(20), self.initial_samples)
         times = np.power(10, times)
         arg = np.argmin(temperatures)
         arg2 = np.argsort(temperatures)[1]

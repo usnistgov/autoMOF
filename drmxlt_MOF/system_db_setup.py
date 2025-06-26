@@ -2,7 +2,8 @@ from drmxlt_MOF.pipette_traking import *
 from drmxlt_MOF.vial_tracking import *
 from drmxlt_MOF.reactor_traking import *
 
-
+from time import sleep
+import asyncio
 
 system_db = {} # Container for information about the system
 
@@ -23,6 +24,67 @@ system_db['clamp_status'] = "Closed"
 system_db['clamp_assignment'] = "Empty"
 
 system_db["reactor"] = reactor
+
+
+system_db["KeyRing"] = {"Arm&Clamp": "Available",
+                        "Reactor_0": {"Reactor_0_0": "Available",
+                                   "Reactor_0_1": "Available",
+                                   "Reactor_0_2": "Available",
+                                   "Reactor_0_3": "Available"},
+                         "Reactor_1": {"Reactor_1_0": "Available",
+                                   "Reactor_1_1": "Available",
+                                   "Reactor_1_2": "Available",
+                                   "Reactor_1_3": "Available"},
+                         "Centrifuge": {"Centrifuge_0": "Available",
+                                    "Centrifuge_1": "Available"},
+                         "Sonicator": "Available"}
+
+
+async def machine_key_checkout(system_db, machine, component = None, attempts_left = 5000):
+    
+    available = machine_key_available(system_db, machine, component)
+
+    if available == True:
+
+        if component == None:
+            system_db["KeyRing"][machine] = "Occupied"
+        else:
+            component_key = machine + f"_{component}"
+            system_db["KeyRing"][machine][component_key] = "Occupied"
+        return system_db
+    
+    if available == False:
+        if attempts_left > 0:
+            attempts_left -= 1
+            # await asyncio.sleep(20)
+            await asyncio.sleep(0.2)
+            # print("sleeping")
+            return await machine_key_checkout(system_db, machine, component, attempts_left)
+        else:
+            raise Exception(f"Machine {machine}_{component} Not Available")
+
+def machine_key_available(system_db, machine, component = None):
+    if component == None:
+        status = system_db["KeyRing"][machine]
+    else:
+        component_key = machine + f"_{component}"
+        status = system_db["KeyRing"][machine][component_key]
+
+    available = status == "Available"
+
+    return available
+
+
+async def machine_key_release(system_db, machine, component = None):
+
+    if component == None:
+        system_db["KeyRing"][machine] = "Available"
+    else:
+        component_key = machine + f"_{component}"
+        system_db["KeyRing"][machine][component_key] = "Available"
+
+
+    return system_db
 
 #TODO: push system db to Cordra? 
     #This is the function that initializes the system db
