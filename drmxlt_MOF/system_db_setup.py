@@ -27,17 +27,20 @@ system_db["reactor"] = reactor
 
 
 system_db["KeyRing"] = {"Arm&Clamp": "Available",
-                        "Reactor_0": {"Reactor_0_0": "Available",
-                                   "Reactor_0_1": "Available",
-                                   "Reactor_0_2": "Available",
-                                   "Reactor_0_3": "Available"},
-                         "Reactor_1": {"Reactor_1_0": "Available",
-                                   "Reactor_1_1": "Available",
-                                   "Reactor_1_2": "Available",
-                                   "Reactor_1_3": "Available"},
-                         "Centrifuge": {"Centrifuge_0": "Available",
-                                    "Centrifuge_1": "Available"},
-                         "Sonicator": "Available"}
+                        "Reactor_0": "Available",
+                        "Reactor_0_0": "Available",
+                        "Reactor_0_1": "Available",
+                        "Reactor_0_2": "Available",
+                        "Reactor_0_3": "Available",
+                        "Reactor_1": "Available",
+                        "Reactor_1_0": "Available",
+                        "Reactor_1_1": "Available",
+                        "Reactor_1_2": "Available",
+                        "Reactor_1_3": "Available",
+                        "Centrifuge": "Available",
+                        "Centrifuge_0": "Available",
+                        "Centrifuge_1": "Available",
+                        "Sonicator": "Available"}
 
 
 async def machine_key_checkout(system_db, machine, component = None, attempts_left = 5000):
@@ -50,7 +53,7 @@ async def machine_key_checkout(system_db, machine, component = None, attempts_le
             system_db["KeyRing"][machine] = "Occupied"
         else:
             component_key = machine + f"_{component}"
-            system_db["KeyRing"][machine][component_key] = "Occupied"
+            system_db["KeyRing"][component_key] = "Occupied"
         return system_db
     
     if available == False:
@@ -68,7 +71,7 @@ def machine_key_available(system_db, machine, component = None):
         status = system_db["KeyRing"][machine]
     else:
         component_key = machine + f"_{component}"
-        status = system_db["KeyRing"][machine][component_key]
+        status = system_db["KeyRing"][component_key]
 
     available = status == "Available"
 
@@ -81,7 +84,7 @@ async def machine_key_release(system_db, machine, component = None):
         system_db["KeyRing"][machine] = "Available"
     else:
         component_key = machine + f"_{component}"
-        system_db["KeyRing"][machine][component_key] = "Available"
+        system_db["KeyRing"][component_key] = "Available"
 
 
     return system_db

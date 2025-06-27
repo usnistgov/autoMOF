@@ -678,6 +678,124 @@ def reset_schedule(full_unit_ops_df,
    
 
 
-def interleave_reactor_preheating(unit_ops_df):
-   #do a thing
-   pass
+def interleave_reactor_preheating(unit_ops_df, heating_rate):
+  """For a heating rate in C/mim"""
+  
+  heating_rate_DS = heating_rate * 10 /60 #Convert to C/Ds
+
+  # Sort the DataFrame by 'Reactor', 'Start Time (Ds)'
+  df_react = unit_ops_df[unit_ops_df['Reactor'].notnull()]
+  df_react = df_react.sort_values(by=['Reactor', 'Start Time (Ds)'])
+
+  # Initialize an empty list to store new rows
+  new_rows = []
+
+  # Iterate over each unique 'Reactor'
+  for reactor in df_react['Reactor'].unique():
+      reactor_df = df_react[df_react['Reactor'] == reactor]
+      
+      # Initialize previous temperature
+      # prev_temp = None
+      prev_temp = 20 # 20 C is room temp
+      
+      # Iterate over each row in the reactor DataFrame
+      for i, (idx, row) in enumerate(reactor_df.iterrows()):
+          if row['UnitOP'] == 'react':
+              # Check if the temperature has changed
+              if row['Reactor Temperature (C)'] != prev_temp:# and prev_temp is not None:
+                  # Create a new row for 'pre_heat_reactor'
+                  new_row = row.copy()
+                  new_row['UnitOP'] = 'pre_heat_reactor'
+                  current_temp = row['Reactor Temperature (C)']
+                  duration = (current_temp - prev_temp)/heating_rate_DS # Time to get to temperature in Ds
+                  
+                  new_row['Duration (Ds)'] = duration
+                  if i == 0:
+                      new_row['Start Time (Ds)'] = row['Start Time (Ds)'] - duration  # Adjust start time
+                      new_row['End Time (Ds)'] = new_row['Start Time (Ds)'] + duration  # End time is the same as start time
+                  else:
+                      prev_end_time = reactor_df.iloc[i -1]['End Time (Ds)']
+                      new_row['Start Time (Ds)'] = prev_end_time 
+                      new_row['End Time (Ds)'] = prev_end_time + duration
+                  new_row['Op Order'] = 0 
+                  new_row['Sample Name'] = None
+                  
+                  # Append the new row to the list
+                  new_rows.append(new_row)
+                  
+              # Update previous temperature
+              prev_temp = row['Reactor Temperature (C)']
+
+  # Convert the list of new rows to a DataFrame
+  new_rows_df = pd.DataFrame(new_rows)
+
+  # Concatenate the original DataFrame with the new rows DataFrame
+  unit_ops_df = pd.concat([unit_ops_df, new_rows_df]).sort_values(by=['Start Time (Ds)', 'Op Order']).reset_index(drop=True)
+
+  # Identify 'pre_heat_reactor' and 'react' steps with the same reactor and temperature
+  pre_heat_rows = unit_ops_df[unit_ops_df['UnitOP'] == 'pre_heat_reactor']
+  react_rows = unit_ops_df[unit_ops_df['UnitOP'] == 'react']
+
+  # Initialize a dictionary to store the shift amounts for each 'react' step
+  shift_amounts = {}
+
+  # Iterate through all the pre_heat unit ops
+  for idx, pre_heat_row in pre_heat_rows.iterrows():
+      # Find the corresponding 'react' step
+      react_row = react_rows[(react_rows['Reactor'] == pre_heat_row['Reactor']) & 
+                            (react_rows['Reactor Temperature (C)'] == pre_heat_row['Reactor Temperature (C)'])]
+      
+      if not react_row.empty:
+          react_row = react_row.iloc[0]
+          shift_amount = pre_heat_row['End Time (Ds)'] - react_row['Start Time (Ds)']
+
+          if shift_amount > 0:
+              # Store the shift amount
+              shift_amounts[react_row.name] = shift_amount
+
+  # Adjust the start and end times of the 'react' steps and subsequent steps
+  for react_idx, shift_amount in shift_amounts.items():
+      # Adjust subsequent 'react' steps with the same end time
+      subsequent_react_rows = unit_ops_df[(unit_ops_df['UnitOP'] == 'react') & 
+                                (unit_ops_df['Reactor'] == unit_ops_df.loc[react_idx, 'Reactor']) & 
+                                (unit_ops_df['End Time (Ds)'] == unit_ops_df.loc[react_idx, 'End Time (Ds)'])]
+      
+      # Adjust the 'react' step
+      unit_ops_df.loc[react_idx, 'Start Time (Ds)'] += shift_amount
+      unit_ops_df.loc[react_idx, 'End Time (Ds)'] += shift_amount
+
+      # Adjust subsequent steps for the same sample
+      sample_name = unit_ops_df.loc[react_idx, 'Sample Name']
+      subsequent_rows = unit_ops_df[(unit_ops_df['Sample Name'] == sample_name) & (unit_ops_df.index > react_idx)]
+      unit_ops_df.loc[subsequent_rows.index, 'Start Time (Ds)'] += shift_amount
+      unit_ops_df.loc[subsequent_rows.index, 'End Time (Ds)'] += shift_amount
+
+      
+      # Iterate through all the subsequent react steps that were adjusted
+      for subsequent_react_idx in subsequent_react_rows.index:
+          if subsequent_react_idx != react_idx:
+              #Find the sample name for that reaction
+              subsequent_sample_name = subsequent_react_rows.loc[subsequent_react_idx, 'Sample Name']
+              #Adjust those reaction start and end times
+              unit_ops_df.loc[subsequent_react_idx, 'Start Time (Ds)'] += shift_amount
+              unit_ops_df.loc[subsequent_react_idx, 'End Time (Ds)'] += shift_amount
+
+              #Find the other ops with that sample name at a higher index than the original reaction 
+              other_subsequent_rows = unit_ops_df[(unit_ops_df['Sample Name'] == subsequent_sample_name) & 
+                                                          (unit_ops_df['UnitOP'] != 'react') &
+                                                          (unit_ops_df.index > react_idx)]
+              #Adjust all those ops start and end times
+              unit_ops_df.loc[other_subsequent_rows.index, 'Start Time (Ds)'] += shift_amount
+              unit_ops_df.loc[other_subsequent_rows.index, 'End Time (Ds)'] += shift_amount
+  
+  #Shift all the ops so that the first op starts at time 0
+  min_start = unit_ops_df["Start Time (Ds)"].min()
+
+  if min_start < 0:
+      shift = np.abs(min_start)
+
+      unit_ops_df["Start Time (Ds)"] += shift
+      unit_ops_df["End Time (Ds)"] += shift
+
+  return unit_ops_df
+      
