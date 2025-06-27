@@ -188,6 +188,32 @@ async def pre_heat_monitor(reactor, target_temperature, experiment, system_db, t
 
 
 
+def initialize_sample(Sample_ID, c, cam, experiment, system_db, attempts_left = 96):
+  try:
+    assign_sample_to_vial(Sample_ID, experiment.sample_db, system_db)
+    destination = np.array([2, 0, 0])
+    Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+    Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
+    scan_barcode(Sample_ID, experiment.sample_db, c, cam, pickup=False)
+  except:
+    #Move the sample back to the vial rack
+    destination = find_open_vial_rack_addresses(system_db)
+    Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+    Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
+    #Re assign that vial to "No Barcode"
+    if destination[1] == 0:
+      vial_array = system_db["vial_rack_left_array"]
+      system_db["left_rack_assignments"][vial_array == destination[2]] = "No Barcode"
+    elif destination[1] == 1:
+        vial_array = system_db["vial_rack_right_array"]
+        system_db["right_rack_assignments"][vial_array == destination[2]] = "No Barcode"
+    #Reset that sample back to no assigned vial
+    experiment.sample_db[Sample_ID]["Address"] = np.array([0, 0, 0])
+    #And try again
+    if attempts_left > 0:
+      attempts_left -= 1
+      initialize_sample(Sample_ID, c, cam, experiment, system_db, attempts_left)
+
 
 
 
@@ -216,11 +242,9 @@ async def Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample= True)
 
     #Assign the new sample to the vial
     if new_sample == True:
-      assign_sample_to_vial(Sample_ID, experiment.sample_db, system_db)
-      destination = np.array([2, 0, 0])
-      Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
-      Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
-      scan_barcode(Sample_ID, experiment.sample_db, c, cam, pickup=False)
+      initialize_sample(Sample_ID, c, cam, experiment, system_db)
+
+
 
     #Pre-move check
     destination = np.array([3, 0, 0]) #Want to move to the clamp
