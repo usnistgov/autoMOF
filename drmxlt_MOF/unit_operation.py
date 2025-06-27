@@ -70,6 +70,9 @@ async def update_unit_op_sample_status(Sample_ID, experiment, unit_op_name, new_
   
   df.loc[idx, "Status"] = new_status
 
+  experiment.unit_ops_df = df
+  return experiment
+
 
 async def unit_op_dependency(Sample_ID, experiment, unit_op_name, attempts_left = 5000):
   ready = unit_op_sample_status(Sample_ID, experiment, unit_op_name)
@@ -117,6 +120,7 @@ async def update_unit_op_preheat_status(reactor, target_temperature, experiment,
            (df["Reactor Temperature (C)"] == target_temperature)].index[0]
   
   temperature = read_temperature(t2, reactor)
+  print(f"Pre_heat temperature {temperature}")
 
   within_tol = np.abs(target_temperature - temperature) <= tolerance
 
@@ -124,6 +128,9 @@ async def update_unit_op_preheat_status(reactor, target_temperature, experiment,
     df.loc[idx, "Status"] = "Completed"
   else:
     df.loc[idx, "Status"] = temperature
+
+  experiment.unit_ops_df = df
+  return experiment
 
 
 async def pre_heat_dependency_check(reactor, target_temperature, experiment):
@@ -167,8 +174,9 @@ async def pre_heat_dependancy(reactor, target_temperature, experiment, attempts_
 async def pre_heat_monitor(reactor, target_temperature, experiment, system_db, t, tolerance = 5.0, attempts_left = 5000):
 
   current_temp = read_temperature(t, reactor)
+  print(f"Pre_heat monitor current_temp {current_temp}")
 
-  update_unit_op_preheat_status(reactor, target_temperature, experiment, t, tolerance)
+  experiment = await update_unit_op_preheat_status(reactor, target_temperature, experiment, t, tolerance)
 
   #update system_db
   system_db['reactor'][reactor]["Temperature (C)"] = current_temp
@@ -176,7 +184,7 @@ async def pre_heat_monitor(reactor, target_temperature, experiment, system_db, t
   completed = unit_op_preheat_status(reactor, target_temperature, experiment, tolerance = tolerance)
 
   if completed == True:
-    return completed
+    return experiment
   else:
     if attempts_left > 0:
       attempts_left -= 1
@@ -194,7 +202,8 @@ def initialize_sample(Sample_ID, c, cam, experiment, system_db, attempts_left = 
     destination = np.array([2, 0, 0])
     Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
     Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
-    scan_barcode(Sample_ID, experiment.sample_db, c, cam, pickup=False)
+    if c.sim == False:
+      scan_barcode(Sample_ID, experiment.sample_db, c, cam, pickup=False)
   except:
     #Move the sample back to the vial rack
     destination = find_open_vial_rack_addresses(system_db)
@@ -224,7 +233,7 @@ async def Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample= True)
 
   try:
     system_db = await machine_key_checkout(system_db, "Arm&Clamp")
-    await update_unit_op_sample_status(Sample_ID, experiment, "add_fluids", "Running")
+    experiment = await update_unit_op_sample_status(Sample_ID, experiment, "add_fluids", "Running")
 
     #Read the sample id, determine precusor sources and volumes
     targetcomposition = experiment.find_compositions(Sample_ID)
@@ -281,7 +290,7 @@ async def Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample= True)
     weighed_composition = {}
     for fluid in experiment.sample_db[Sample_ID]["Fluid Order"]:
       exp_vol = experiment.sample_db[Sample_ID]["Experiment Volumes (mL)"][fluid]
-      Fluid_dispense(fluid, exp_vol, destination, c, experiment.fluid_db, system_db)
+      # Fluid_dispense(fluid, exp_vol, destination, c, experiment.fluid_db, system_db)
       weighed_composition[fluid] = c.read_steady_scale() 
 
     experiment.sample_db[Sample_ID]["Weighed Composition (g)"] = weighed_composition
@@ -304,7 +313,7 @@ async def Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample= True)
 
   finally: 
     system_db = await machine_key_release(system_db, "Arm&Clamp")
-    await update_unit_op_sample_status(Sample_ID, experiment, "add_fluids", "Completed")
+    experiment = await update_unit_op_sample_status(Sample_ID, experiment, "add_fluids", "Completed")
 
   return system_db
 
@@ -323,30 +332,36 @@ def Measure_color(Sample_ID, c, system_db, experiment):
 
 async def Preheat_reactor(reactor, target_temperature, c, t, system_db, experiment):
   print(f"Preheating Reactor {reactor}")
-  if c.sim == True:
-    return
+  
   
   try: 
+    print("Preheat system_db")
+    print(system_db["KeyRing"])
     #Is the reactor key available?
     system_db = await machine_key_checkout(system_db, f"Reactor_{reactor}")
     
     #Are there any reaction steps with this reactor, at a lower temperature, that haven't completed yet?
+    print("Checking pre_heat dependency")
     ready = await pre_heat_dependancy(reactor, target_temperature, experiment)
 
     print(f"Preheat_reactor channel = {reactor}")
-    hold_temp(t, reactor, target_temperature)
+    # hold_temp(t, reactor, target_temperature)
 
     #update the system db to capture the set temperature. 
     system_db["reactor"][reactor]["Set Temperature (C)"] = target_temperature
     #TODO: push system db to Cordra
 
-    #pre_heat_monitor function will update the system_db and unit_ops_df until target temperature is reached.
-    completed = await pre_heat_monitor(reactor, target_temperature, experiment, system_db, t)
+    if c.sim == False:
+      #pre_heat_monitor function will update the system_db and unit_ops_df until target temperature is reached.
+      print(f"Monitoring preheat if reactor {reactor}")
+      experiment = await pre_heat_monitor(reactor, target_temperature, experiment, system_db, t)
+    else:
+      completed = True
 
   finally:
     system_db = await machine_key_release(system_db, f"Reactor_{reactor}")
 
-  return system_db
+  return system_db, experiment
 
 
 async def Move_to_reactor(Sample_ID, c, system_db, experiment):
@@ -377,6 +392,8 @@ async def Move_to_reactor(Sample_ID, c, system_db, experiment):
     system_db = await machine_key_release(system_db, "Arm&Clamp")
     system_db = await machine_key_release(system_db, f"Reactor_{reactor_ID}", position)
 
+  return system_db
+
 
 
 async def Move_from_reactor(Sample_ID, c, system_db, experiment):
@@ -404,6 +421,8 @@ async def Move_from_reactor(Sample_ID, c, system_db, experiment):
     system_db = await machine_key_release(system_db, "Arm&Clamp")
     system_db = await machine_key_release(system_db, f"Reactor_{reactor}", position)
 
+  return system_db
+
 
 
 
@@ -411,8 +430,6 @@ async def Move_from_reactor(Sample_ID, c, system_db, experiment):
 # def Start_reaction(Sample_ID, destination, c, t, system_db, experiment, end_temp = 10):
 async def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
   print(f"Starting reaction for {Sample_ID}")
-  if c.sim == True:
-    return
   
   try:
     sample_address = experiment.sample_db[Sample_ID]["Address"]
@@ -442,13 +459,17 @@ async def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
     #Start reaction time
     print(f"Starting reaction.  Time: {reaction_time} s;  Temp: {target_temperature} degC;")
     # temp_ramp_up_hold_down(t, reactor_id, target_temperature, reaction_time, end_temp)
-    hold_temp(t, reactor_id, target_temperature)
-    print("Started reaction!")
+    if c.sim == False:
+
+      # hold_temp(t, reactor_id, target_temperature)
+      print("Started reaction!")
 
     await asyncio.sleep(reaction_time * 60) #Wait for reaction_time (converted to seconds)
 
   finally:
     system_db = await machine_key_release(system_db, f"Reactor_{reactor}", reactor_pos)
+
+  return system_db
     
 
 
@@ -456,30 +477,36 @@ async def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
 async def React(Sample_ID, c, t, system_db, experiment):
   print(f"Starting react sequence for {Sample_ID}")
 
-  #Wait for "add_fluids" for this sample to finish
-  await unit_op_dependency(Sample_ID, experiment, "add_fluids")
+  try:
+    print("Testing react dependencies")
+    print(experiment.unit_ops_df)
+    #Wait for "add_fluids" for this sample to finish
+    sample_ready = await unit_op_dependency(Sample_ID, experiment, "add_fluids")
+    print("Passed react dependencies")
 
-  #Wait for the reactor pre_heat to finish
-  sub_df = experiment.unit_ops_df[experiment.unit_ops_df["Sample Name"] == Sample_ID]
-  sub_sub_df = sub_df[sub_df["UnitOP"] == "react"]
-  reactor_id = sub_sub_df["Reactor"].values[0]
-  target_temperature = sub_sub_df["Reactor Temperature (C)"].values[0]
-  await pre_heat_dependancy(reactor_id, target_temperature, experiment)
+    #Wait for the reactor pre_heat to finish
+    sub_df = experiment.unit_ops_df[experiment.unit_ops_df["Sample Name"] == Sample_ID]
+    sub_sub_df = sub_df[sub_df["UnitOP"] == "react"]
+    reactor_id = sub_sub_df["Reactor"].values[0]
+    target_temperature = sub_sub_df["Reactor Temperature (C)"].values[0]
+    reactor_preheated = await pre_heat_dependancy(reactor_id, target_temperature, experiment)
 
-  #Move sample to reactor
-  await Move_to_reactor(Sample_ID, c, system_db, experiment)
+    #Move sample to reactor
+    system_db = await Move_to_reactor(Sample_ID, c, system_db, experiment)
 
-  #Update the unit_ops_df
-  await update_unit_op_sample_status(Sample_ID, experiment, "react", "Running")
-  #Start the reaction
-  await Start_reaction(Sample_ID, c, t, system_db, experiment)
+    #Update the unit_ops_df
+    experiment = await update_unit_op_sample_status(Sample_ID, experiment, "react", "Running")
+    #Start the reaction
+    system_db = await Start_reaction(Sample_ID, c, t, system_db, experiment)
+    
+    #Move sample from the reactor
+    system_db = await Move_from_reactor(Sample_ID, c, system_db, experiment)
   
-  #Move sample from the reactor
-  await Move_from_reactor(Sample_ID, c, system_db, experiment)
+  finally:
+    #Update the unit_ops_df
+    experiment = await update_unit_op_sample_status(Sample_ID, experiment, "react", "Completed")
   
-  #Update the unit_ops_df
-  await update_unit_op_sample_status(Sample_ID, experiment, "react", "Completed")
-  
+  return system_db, experiment, sample_ready, reactor_preheated 
 
 
 

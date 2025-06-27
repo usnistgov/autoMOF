@@ -1,5 +1,11 @@
 import sys
-sys.path.append("C://Users//asm6//drmxlt//drmxlt//")
+# sys.path.append("C://Users//asm6//drmxlt//drmxlt//")
+sys.path.append("C://Users//drmxlt//Documents//Cu_BTC_synth_control_test//")
+
+import pandas as pd
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
 
 from drmxlt_MOF.experiments import Ternary_colordemo, Cu_BTC
 from drmxlt_MOF.moving_vials import Move_Sample, find_open_vial_rack_addresses, Premove_Check_, find_open_reactor_addresses
@@ -19,19 +25,31 @@ from time import sleep
 
 import asyncio
 
+# c9 = NorthC9(addr="sim")
+c9 = NorthC9('A',network_serial="AU06D2C0")  # instantiate a C9 controller object with C9 network address A-
+
+# c9.default_vel=15
+c9.default_vel=7
+
+t2=NorthC9('B',network=c9.network)
+
+sleep(0.2)
+cam = SimpleCamera(0)
+sleep(0.2)
 
 example = Cu_BTC()
-c9 = dummy_c9()
-t2 = c9
-cam = c9
+# c9 = dummy_c9()
+# t2 = c9
+# cam = c9
+num_reactors = 1
 
 unit_ops_df = create_unit_ops_df(example.sample_db, True, True, False, False, False)
 print("Created Unit Ops DF")
 
-unit_ops_df, reactor_df = assign_reactors(unit_ops_df, 2, 4)
+unit_ops_df, reactor_df = assign_reactors(unit_ops_df, num_reactors, 4)
 print("Assigned Reactors")
 
-unit_ops_df, overall_time = define_cp_job(unit_ops_df, 2)
+unit_ops_df, overall_time = define_cp_job(unit_ops_df, num_reactors)
 print("Solved Constraint Satisfaction Problem")
 
 unit_ops_df = interleave_reactor_preheating(unit_ops_df, 10)
@@ -42,10 +60,12 @@ print(unit_ops_df)
 example.unit_ops_df = unit_ops_df
 example.reactor_df = reactor_df
 
+
+
 print("Starting main")
 asyncio.run(main(unwrap_unit_ops_df(unit_ops_df, c9, t2, cam, system_db, example)))
 
-
+print(system_db["KeyRing"])
 
 
 ###############################################################################
