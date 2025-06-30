@@ -188,12 +188,55 @@ async def pre_heat_monitor(reactor, target_temperature, experiment, system_db, t
   else:
     if attempts_left > 0:
       attempts_left -= 1
-      await asyncio.sleep(60)
+      await asyncio.sleep(1)
       return await pre_heat_monitor(reactor, target_temperature, experiment, system_db, t, tolerance, attempts_left)
     else:
       raise Exception(f"Pre Heat Monitor for Reactor_{reactor} timed out")
 
+async def add_fluids_dependancy_check(Sample_ID, experiment):
+  df = experiment.unit_ops_df
 
+  #Find the index of the current op
+  idx = df[(df["Sample Name"] == Sample_ID) &
+          (df["UnitOP"] == "add_fluids")].index[0]
+
+  #Find the reactor that this sample will use
+  needed_reactor = df[(df["Sample Name"] == Sample_ID) &
+                      (df["UnitOP"] == "react")]["Reactor"].values[0]
+
+  #Find all the react ops that happen earlier
+  react_df = df[(df["UnitOP"] == "react") &
+                (df["Reactor"] == needed_reactor) &
+                (df.index < idx)]
+
+
+  if not react_df.empty:
+      statuses = react_df["Status"]
+      #Make sure none of those are still "To Do"
+      test1 = not any(statuses == "To Do")
+      #Make sure none of thoes are still "Running"
+      test2 = not any(statuses == "Running")
+
+      #Must pass both tests
+      test = test1 and test2
+  else:
+      test = True
+
+  return test
+
+async def add_fluids_dependency(Sample_ID, experiment, attempts_left = 5000):
+    ready = add_fluids_dependancy_check(Sample_ID, experiment)
+
+    if ready == True:
+      return ready
+    
+    else:
+      if attempts_left > 0:
+        attempts_left -= 1
+        await asyncio.sleep(1)
+        return await add_fluids_dependency(Sample_ID, experiment, attempts_left)
+      else:
+        raise Exception(f"Add fluids {Sample_ID} dependency timed out")
 
 
 def initialize_sample(Sample_ID, c, cam, experiment, system_db, attempts_left = 96):
@@ -234,6 +277,7 @@ async def Add_fluids(Sample_ID, c, cam, system_db, experiment, new_sample= True)
   try:
     system_db = await machine_key_checkout(system_db, "Arm&Clamp")
     experiment = await update_unit_op_sample_status(Sample_ID, experiment, "add_fluids", "Running")
+    ready = await add_fluids_dependency(Sample_ID, experiment)
 
     #Read the sample id, determine precusor sources and volumes
     targetcomposition = experiment.find_compositions(Sample_ID)
@@ -464,7 +508,12 @@ async def Start_reaction(Sample_ID, c, t, system_db, experiment, end_temp = 10):
       # hold_temp(t, reactor_id, target_temperature)
       print("Started reaction!")
 
-    await asyncio.sleep(reaction_time * 60) #Wait for reaction_time (converted to seconds)
+    time_nearing_end = 4 * 60 #Seconds before the ending to consider nearing the end
+    await asyncio.sleep(reaction_time * 60 - time_nearing_end) #Wait for reaction_time (converted to seconds)
+    #Update the unit_ops_df
+    experiment = await update_unit_op_sample_status(Sample_ID, experiment, "react", "Ending")
+    await asyncio.sleep(time_nearing_end) #Wait rest of the time
+
 
   finally:
     system_db = await machine_key_release(system_db, f"Reactor_{reactor}", reactor_pos)

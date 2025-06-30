@@ -8,7 +8,7 @@ class Experiment():
     """"Base class for all experiments"""
     
     #number of initial samples
-    initial_samples : int = 3
+    initial_samples : int = 12
     batch_size : int = 1
     #sample code length in number of characters
     code_length : int = 4 
