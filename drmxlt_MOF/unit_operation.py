@@ -194,32 +194,73 @@ async def pre_heat_monitor(reactor, target_temperature, experiment, system_db, t
 
 async def add_fluids_dependancy_check(Sample_ID, experiment):
   df = experiment.unit_ops_df
+  ##################
+  # Check for reactions that happen before this op and wait for those to finish 
+  # #Find the index of the current op
+  # idx = df[(df["Sample Name"] == Sample_ID) &
+  #         (df["UnitOP"] == "add_fluids")].index[0]
 
+  # #Find the reactor that this sample will use
+  # needed_reactor = df[(df["Sample Name"] == Sample_ID) &
+  #                     (df["UnitOP"] == "react")]["Reactor"].values[0]
+
+  # #Find all the react ops that happen earlier
+  # react_df = df[(df["UnitOP"] == "react") &
+  #               (df["Reactor"] == needed_reactor) &
+  #               (df.index < idx)]
+
+
+  # if not react_df.empty:
+  #     statuses = react_df["Status"]
+  #     #Make sure none of those are still "To Do"
+  #     test1 = not any(statuses == "To Do")
+  #     #Make sure none of thoes are still "Running"
+  #     test2 = not any(statuses == "Running")
+
+  #     #Must pass both tests
+  #     test = test1 and test2
+  # else:
+  #     test = True
+
+  #############################
+  # Check for pre_heat steps that happen before this op and wait for that status to include sample name
   #Find the index of the current op
   idx = df[(df["Sample Name"] == Sample_ID) &
           (df["UnitOP"] == "add_fluids")].index[0]
+  
+  #Find the op for this sample's reaction
+  sub_df = df[(df["Sample Name"] == Sample_ID) &
+              (df["UnitOP"] == "react")]
+  reactor = sub_df["Reactor"].values[0]
+  temperature = sub_df["Reactor Temperature (C)"].values[0]
 
-  #Find the reactor that this sample will use
-  needed_reactor = df[(df["Sample Name"] == Sample_ID) &
-                      (df["UnitOP"] == "react")]["Reactor"].values[0]
-
-  #Find all the react ops that happen earlier
-  react_df = df[(df["UnitOP"] == "react") &
-                (df["Reactor"] == needed_reactor) &
+  react_df = df[(df["UnitOP"] == "pre_heat_reactor") &
+                (df["Reactor"] == reactor) &
+                (df["Reactor Temperature (C)"] == temperature) &
                 (df.index < idx)]
-
-
   if not react_df.empty:
-      statuses = react_df["Status"]
-      #Make sure none of those are still "To Do"
-      test1 = not any(statuses == "To Do")
-      #Make sure none of thoes are still "Running"
-      test2 = not any(statuses == "Running")
-
-      #Must pass both tests
-      test = test1 and test2
+    status = react_df["Status"].values[0]
+    test1_1 = Sample_ID in status
+    test1_2 = status == "Completed"
+    test1 = test1_1 or test1_2
   else:
-      test = True
+    test1 = True
+
+  # Check the react ops that happen before this sample's reaction and wait for those to at least be "ending"
+  #Find the index of pre-heat step for this samples reaction
+  reactor_pre_heat_index = df[(df["UnitOP"] == "pre_heat_reactor") &
+                              (df["Reactor"] == reactor) &
+                              (df["Reactor Temperature (C)"] == temperature)].index[0]
+  #Find all the statuses of the reactions at a different temperature that happen before this samples pre_heat step
+  statuses = df[(df["UnitOP"] == "react") &
+              (df["Reactor"] == reactor) &
+              (df["Reactor Temperature (C)"] != temperature) &
+              (df.index < reactor_pre_heat_index)]["Status"].values
+  test2_1 = statuses == "Completed" 
+  test2_2 = statuses == "Ending"
+  test2 = all(test2_2 | test2_1) #all() returns True when both test1 and test2 are empty
+
+  test = test1 and test2
 
   return test
 
@@ -237,29 +278,34 @@ async def add_fluids_dependency(Sample_ID, experiment, attempts_left = 5000):
       else:
         raise Exception(f"Add fluids {Sample_ID} dependency timed out")
 
-async def react_dependency_check(reactor, target_temperature, experiment):
-  df = experiment.unit_ops_df
+async def react_dependency_check(reactor, target_temperature, experiment, t2, tolerance = 5.0):
+  temperature = read_temperature(t2, reactor)
 
-  #Find all the "pre_heat_reactor" unit ops that use the same reactor and have the same temperature
-  sub_df = df[(df["Reactor"] == reactor) &
-              (df["UnitOP"] == "pre_heat_reactor") &
-              (df["Reactor Temperature (C)"] == target_temperature)]
-
-  #If there are any: 
-  if not sub_df.empty:
-    #Check the status of each of those
-    status = sub_df["Status"].values
-    #Have they all completed?
-    test = all(status == "Completed")
+  within_tol = np.abs(target_temperature - temperature) <= tolerance
   
-  else:
-    test = True
+  # df = experiment.unit_ops_df
+
+  # #Find all the "pre_heat_reactor" unit ops that use the same reactor and have the same temperature
+  # sub_df = df[(df["Reactor"] == reactor) &
+  #             (df["UnitOP"] == "pre_heat_reactor") &
+  #             (df["Reactor Temperature (C)"] == target_temperature)]
+
+  # #If there are any: 
+  # if not sub_df.empty:
+  #   #Check the status of each of those
+  #   status = sub_df["Status"].values
+  #   #Have they all completed?
+  #   test = all(status == "Completed")
   
-  return test
+  # else:
+  #   test = True
+  
+  # return test
+  return within_tol
 
-async def react_dependancy(reactor, target_temperature, experiment, attempts_left = 5000):
+async def react_dependancy(reactor, target_temperature, experiment, t2, tolerance = 5.0, attempts_left = 5000):
 
-  ready = await react_dependency_check(reactor, target_temperature, experiment)
+  ready = await react_dependency_check(reactor, target_temperature, experiment, t2, tolerance,)
 
   if ready == True:
     return ready
@@ -269,9 +315,12 @@ async def react_dependancy(reactor, target_temperature, experiment, attempts_lef
       attempts_left -= 0
 
       await asyncio.sleep(0.2)
-      return await react_dependancy(reactor, target_temperature, experiment, attempts_left)
+      return await react_dependancy(reactor, target_temperature, experiment, t2, tolerance, attempts_left)
     else:
       raise Exception(f"Machine Reactor_{reactor} Not Available for Reaction")
+
+
+
 
 def initialize_sample(Sample_ID, c, cam, experiment, system_db, attempts_left = 96):
   try:
@@ -445,25 +494,59 @@ async def Preheat_reactor(op_df_index,reactor, target_temperature, c, t, system_
   system_db["reactor"][reactor]["Set Temperature (C)"] = target_temperature
   #TODO: push system db to Cordra
 
-  if c.sim == False:
-    #pre_heat_monitor function will update the system_db and unit_ops_df until target temperature is reached.
-    print(f"Monitoring preheat if reactor {reactor}")
-    experiment = await pre_heat_monitor(reactor, target_temperature, experiment, system_db, t)
-  else:
-    df = experiment.unit_ops_df
-    duration = df[(df["Reactor"] == reactor) &
-                  (df["Reactor Temperature (C)"] == target_temperature)]["Duration (Ds)"].values[0]
-    duration *= 10 #Convert Ds to s
+  ########################
+  #Maybe we don't need this section
+  # if c.sim == False:
+  #   #pre_heat_monitor function will update the system_db and unit_ops_df until target temperature is reached.
+  #   print(f"Monitoring preheat if reactor {reactor}")
+  #   experiment = await pre_heat_monitor(reactor, target_temperature, experiment, system_db, t)
+  # else:
+  #   df = experiment.unit_ops_df
+  #   duration = df[(df["Reactor"] == reactor) &
+  #                 (df["Reactor Temperature (C)"] == target_temperature)]["Duration (Ds)"].values[0]
+  #   duration *= 10 #Convert Ds to s
 
-    idx = df[(df["Reactor"] == reactor) &
-                  (df["Reactor Temperature (C)"] == target_temperature)].index[0]
+  #   idx = df[(df["Reactor"] == reactor) &
+  #                 (df["Reactor Temperature (C)"] == target_temperature)].index[0]
     
-    df.loc[idx, "Status"] = "Simulated Running"
-    await asyncio.sleep(duration)
-    df.loc[idx, "Status"] = "Completed"
-    completed = True
+  #   df.loc[idx, "Status"] = "Simulated Running"
+  #   await asyncio.sleep(duration)
+    
+  #   completed = True
+  ##############################
+
+
+  #Update the pre-heat status to show what samples should start to add_fluids:
+  df = experiment.unit_ops_df
+  pre_heat_index = df[(df["Reactor"] == reactor) &
+                      (df["UnitOP"] == "pre_heat_reactor") &
+                      (df["Reactor Temperature (C)"] == target_temperature)].index[0]
+  #Find All the react unit ops at the same temperature with same reactor
+  sub_df = df[(df["UnitOP"] == "react") &
+            (df["Reactor Temperature (C)"] == target_temperature)]
+  #Find the first start time of that reaction
+  start_time = sub_df["Start Time (Ds)"].values[0]
+  #Start a container of the released samples
+  released_samples = []
+  #Iterate through the react unit ops
+  for idx, row in sub_df.iterrows():
+      #Find the interval between the current start time and this row's start time
+      interval = row["Start Time (Ds)"] - start_time
+      
+      # await asyncio.sleep(interval * 10) #Sleep for that time (converted to seconds)
+      await asyncio.sleep(interval) # For quick simulations sleep for 1/10 time
+      #Add that sample to the list of released samples
+      released_samples.append(row["Sample Name"])
+      print(f"Release Sample {released_samples}")
+      #Update the status to release that sample
+      df.loc[pre_heat_index, "Status"] = f"Release Sample {released_samples}"
+
+      #Set the new start time to this row's start time
+      start_time = row["Start Time (Ds)"] 
+
 
   # finally:
+  df.loc[idx, "Status"] = "Completed"
   system_db = await machine_key_release(system_db, f"Reactor_{reactor}")
   # print(f"released reactor {reactor}")
   print(f"Finished Op Index {op_df_index}")
@@ -623,7 +706,7 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   sub_sub_df = sub_df[sub_df["UnitOP"] == "react"]
   reactor_id = sub_sub_df["Reactor"].values[0]
   target_temperature = sub_sub_df["Reactor Temperature (C)"].values[0]
-  reactor_preheated = await react_dependancy(reactor_id, target_temperature, experiment)
+  reactor_preheated = await react_dependancy(reactor_id, target_temperature, experiment, t)
 
   print(f"Op Index {op_df_index} system_db")
   print(system_db["KeyRing"])
