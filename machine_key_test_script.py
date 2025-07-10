@@ -24,6 +24,9 @@ import time
 from time import sleep
 
 import asyncio
+import numpy as np
+# np.random.seed(1)
+np.random.seed(3)
 
 # c9 = NorthC9(addr="sim")
 c9 = NorthC9('A',network_serial="AU06D2C0")  # instantiate a C9 controller object with C9 network address A-
@@ -48,7 +51,7 @@ print("Created Unit Ops DF")
 
 unit_ops_df, reactor_df = assign_reactors(unit_ops_df, num_reactors, 4)
 print("Assigned Reactors")
-
+# print(unit_ops_df)
 unit_ops_df, overall_time = define_cp_job(unit_ops_df, num_reactors)
 print("Solved Constraint Satisfaction Problem")
 
@@ -63,9 +66,11 @@ example.reactor_df = reactor_df
 
 
 print("Starting main")
-asyncio.run(main(unwrap_unit_ops_df(unit_ops_df, c9, t2, cam, system_db, example)))
-
+results = asyncio.run(main(unwrap_unit_ops_df(unit_ops_df, c9, t2, cam, system_db, example)))
+print("DONE!!!!!!!!!!!!")
 print(system_db["KeyRing"])
+
+
 
 
 ###############################################################################

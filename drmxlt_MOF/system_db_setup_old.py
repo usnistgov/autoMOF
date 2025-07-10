@@ -43,21 +43,28 @@ system_db["KeyRing"] = {"Arm&Clamp": "Available",
                         "Sonicator": "Available"}
 
 
-async def machine_key_checkout(system_db, machine, component = None):
-
-    available = False
-
-    while available == False:
-        await asyncio.sleep(0.2)
-        available = machine_key_available(system_db, machine, component)
-
-    if component == None:
-            system_db["KeyRing"][machine] = "Occupied"
-    else:
-        component_key = machine + f"_{component}"
-        system_db["KeyRing"][component_key] = "Occupied"
-    return system_db
+async def machine_key_checkout(system_db, machine, component = None, attempts_left = 50000):
     
+    available = machine_key_available(system_db, machine, component)
+
+    if available == True:
+
+        if component == None:
+            system_db["KeyRing"][machine] = "Occupied"
+        else:
+            component_key = machine + f"_{component}"
+            system_db["KeyRing"][component_key] = "Occupied"
+        return system_db
+    
+    if available == False:
+        if attempts_left > 0:
+            attempts_left -= 1
+            # await asyncio.sleep(20)
+            await asyncio.sleep(0.2)
+            # print("sleeping")
+            return await machine_key_checkout(system_db, machine, component, attempts_left)
+        else:
+            raise Exception(f"Machine {machine}_{component} Not Available")
 
 def machine_key_available(system_db, machine, component = None):
     if component == None:

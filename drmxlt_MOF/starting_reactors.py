@@ -3,6 +3,8 @@ import numpy as np
 from north import NorthC9
 import drmxlt_MOF.omega7523_interface as om
 
+import time 
+
 
 # c9 = NorthC9('A', network_serial="FT6VE3MC", heartbeat=True)
 # t8 = NorthC9('B', network = c9.network, heartbeat=True)
@@ -61,6 +63,7 @@ def set_PID_mode(t8, channel):
 
 def read_temperature(t8, channel):
     temperature = t8.get_temp(channel)
+    time.sleep(0.5)
     return temperature
 
 def Reactor_ready_check(t8, channel, target_temperature, tolerance = 5):
