@@ -25,8 +25,8 @@ from time import sleep
 
 import asyncio
 import numpy as np
-# np.random.seed(1)
-np.random.seed(3)
+np.random.seed(1)
+# np.random.seed(3)
 
 # c9 = NorthC9(addr="sim")
 c9 = NorthC9('A',network_serial="AU06D2C0")  # instantiate a C9 controller object with C9 network address A-

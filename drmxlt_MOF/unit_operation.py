@@ -664,7 +664,7 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   # print(experiment.unit_ops_df)
   #Wait for "add_fluids" for this sample to finish
   sample_ready = await unit_op_dependency(Sample_ID, experiment, "add_fluids")
-  print(f"Passed {Sample_ID} react dependencies")
+  print(f"Passed {Sample_ID} dependencies on add fluids")
 
   #Wait for the reactor pre_heat to finish
   sub_df = experiment.unit_ops_df[experiment.unit_ops_df["Sample Name"] == Sample_ID]
@@ -672,16 +672,17 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   reactor_id = sub_sub_df["Reactor"].values[0]
   target_temperature = sub_sub_df["Reactor Temperature (C)"].values[0]
   reactor_preheated = await react_dependancy(Sample_ID, reactor_id, target_temperature, experiment, t)
+  print(f"Passed {Sample_ID} dependencies on pre_heat")
+
+  #Check out the keys for the arm and for the reactor position:
+  system_db = await machine_key_checkout(system_db, "Arm&Clamp")
+  position = find_open_reactor_addresses(system_db, reactor_id)
+  destination = np.array([4, reactor_id, position])  
+  system_db = await machine_key_checkout(system_db, f"Reactor_{reactor_id}", position)
 
   print(f"Op Index {op_df_index} system_db")
   print(system_db["KeyRing"])
   # print(f"Starting react sequence for {Sample_ID}")
-
-  #Check out the keys for the arm and for the reactor position:
-  position = find_open_reactor_addresses(system_db, reactor_id)
-  destination = np.array([4, reactor_id, position])
-  system_db = await machine_key_checkout(system_db, "Arm&Clamp")
-  system_db = await machine_key_checkout(system_db, f"Reactor_{reactor_id}", position)
 
   #Update the unit_ops_df
   # experiment = await update_unit_op_sample_status(Sample_ID, experiment, "react", "Running")
