@@ -7,6 +7,7 @@ from drmxlt_MOF.dummy_c9 import tare_balance
 from drmxlt_MOF.im_proc import measure_color
 from drmxlt_MOF.starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check, read_temperature
 from drmxlt_MOF.system_db_setup import machine_key_checkout, machine_key_release
+from drmxlt_MOF.op_launcher import write_db_files
 from pyzbar.pyzbar import decode
 
 # from drmxlt_MOF.Locator import camera_pos
@@ -318,7 +319,7 @@ def initialize_sample(Sample_ID, c, cam, experiment, system_db, attempts_left = 
     Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
     if c.sim == False:
       print("Scanning Barcode")
-      # scan_barcode(Sample_ID, experiment.sample_db, c, cam, pickup=False)
+      scan_barcode(Sample_ID, experiment.sample_db, c, cam, pickup=False)
   except:
     #Move the sample back to the vial rack
     destination = find_open_vial_rack_addresses(system_db)
@@ -413,7 +414,7 @@ async def Add_fluids(op_df_index, Sample_ID, c, cam, system_db, experiment, new_
   weighed_composition = {}
   for fluid in experiment.sample_db[Sample_ID]["Fluid Order"]:
     exp_vol = experiment.sample_db[Sample_ID]["Experiment Volumes (mL)"][fluid]
-    # Fluid_dispense(fluid, exp_vol, destination, c, experiment.fluid_db, system_db)
+    Fluid_dispense(fluid, exp_vol, destination, c, experiment.fluid_db, system_db)
     weighed_composition[fluid] = c.read_steady_scale() 
 
   experiment.sample_db[Sample_ID]["Weighed Composition (g)"] = weighed_composition
@@ -448,6 +449,7 @@ async def Add_fluids(op_df_index, Sample_ID, c, cam, system_db, experiment, new_
   # print(experiment.unit_ops_df)
   print(f"Finished Op Index {op_df_index}")
   print(experiment.unit_ops_df)
+  write_db_files(system_db, experiment)
   return system_db
 
 def Measure_color(Sample_ID, c, system_db, experiment):
@@ -483,7 +485,7 @@ async def Preheat_reactor(op_df_index,reactor, target_temperature, c, t, system_
   
 
   # print(f"Preheat_reactor channel = {reactor}")
-  # hold_temp(t, reactor, target_temperature)
+  hold_temp(t, reactor, target_temperature)
 
   #update the system db to capture the set temperature. 
   system_db["reactor"][reactor]["Set Temperature (C)"] = target_temperature
@@ -550,7 +552,7 @@ async def Preheat_reactor(op_df_index,reactor, target_temperature, c, t, system_
   # print(f"released reactor {reactor}")
   print(f"Finished Op Index {op_df_index}")
   print(experiment.unit_ops_df)
-
+  write_db_files(system_db, experiment)
   return system_db, experiment
 
 
@@ -692,9 +694,11 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   system_db = await Move_to_reactor(op_df_index,Sample_ID, c, system_db, experiment, destination)
   # Release Key for Arm&Clamp
   system_db = machine_key_release(system_db, "Arm&Clamp")
+  write_db_files(system_db, experiment)
 
   #Start the reaction
   system_db = await Start_reaction(op_df_index,Sample_ID, c, t, system_db, experiment)
+  write_db_files(system_db, experiment)
   
   #Move sample from the reactor
   system_db = await machine_key_checkout(system_db, "Arm&Clamp")
@@ -710,6 +714,7 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   experiment = update_unit_op_sample_status(Sample_ID, experiment, "react", "Completed")
   print(f"Finished Op Index {op_df_index}")
   print(experiment.unit_ops_df)
+  write_db_files(system_db, experiment)
   return system_db, experiment, sample_ready, reactor_preheated 
 
 

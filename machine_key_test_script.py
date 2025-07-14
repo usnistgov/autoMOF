@@ -14,6 +14,8 @@ from drmxlt_MOF.unit_operation import Add_fluids, unwrap_unit_ops_df, main
 from drmxlt_MOF.system_db_setup import system_db, machine_key_checkout, machine_key_release, machine_key_available
 from drmxlt_MOF.op_scheduler import create_unit_ops_df, assign_reactors, define_cp_job, reset_schedule, interleave_reactor_preheating
 from drmxlt_MOF.op_launcher import launch_scheduled_ops, execute_scheduled_ops
+from drmxlt_MOF.starting_reactors import hold_temp
+from drmxlt_MOF.fluid_dispensing import Syringe_Pump_Fluid
 from north import NorthC9
 import json
 from drmxlt_MOF.dummy_c9 import dummy_c9
@@ -63,6 +65,7 @@ print(unit_ops_df)
 example.unit_ops_df = unit_ops_df
 example.reactor_df = reactor_df
 
+print(example.sample_db)
 
 
 print("Starting main")
@@ -70,7 +73,8 @@ results = asyncio.run(main(unwrap_unit_ops_df(unit_ops_df, c9, t2, cam, system_d
 print("DONE!!!!!!!!!!!!")
 print(system_db["KeyRing"])
 
-
+#Set the reactor back to room temperature
+hold_temp(t2, 0, 20)
 
 
 ###############################################################################
