@@ -1051,7 +1051,6 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   """
 
   print(f"Testing {Sample_ID} react dependencies")
-  # print(experiment.unit_ops_df)
   #Wait for "add_fluids" for this sample to finish
   sample_ready = await unit_op_dependency(Sample_ID, experiment, "add_fluids")
   print(f"Passed {Sample_ID} dependencies on add fluids")
@@ -1072,10 +1071,8 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
 
   print(f"Op Index {op_df_index} system_db")
   print(system_db["KeyRing"])
-  # print(f"Starting react sequence for {Sample_ID}")
-
+  
   #Update the unit_ops_df
-  # experiment = await update_unit_op_sample_status(Sample_ID, experiment, "react", "Running")
   experiment = update_unit_op_sample_status(Sample_ID, experiment, "react", "Running")
 
   #Move sample to reactor
@@ -1096,9 +1093,7 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   system_db = machine_key_release(system_db, "Arm&Clamp")
   system_db = machine_key_release(system_db, f"Reactor_{reactor_id}", position)
 
-  # finally:
   #Update the unit_ops_df
-  # experiment = await update_unit_op_sample_status(Sample_ID, experiment, "react", "Completed")
   experiment = update_unit_op_sample_status(Sample_ID, experiment, "react", "Completed")
   print(f"Finished Op Index {op_df_index}")
   print(experiment.unit_ops_df)

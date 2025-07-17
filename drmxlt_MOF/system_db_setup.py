@@ -44,6 +44,23 @@ system_db["KeyRing"] = {"Arm&Clamp": "Available",
 
 
 async def machine_key_checkout(system_db, machine, component = None):
+    """
+    Asynchronous Function for waiting/depending checking out the key to a component of the system.
+    
+    Parameters
+    ----------
+    system_db : dict (-like)
+        Database that tracks all the status of all components of the system
+    machine : str
+        Name of the machine in the KeyRing to checkout the keys for. 
+    component : int
+        Index specifying the sub-component of the machine
+
+    Returns
+    -------
+    system_db : dict (-like)
+        Updated Database that of all the statuses of all components of the system
+    """
 
     available = False
 
@@ -60,6 +77,23 @@ async def machine_key_checkout(system_db, machine, component = None):
     
 
 def machine_key_available(system_db, machine, component = None):
+    """
+    Function for checking availablity of the key to a component of the system.
+    
+    Parameters
+    ----------
+    system_db : dict (-like)
+        Database that tracks all the status of all components of the system
+    machine : str
+        Name of the machine in the KeyRing to checkout the keys for. 
+    component : int
+        Index specifying the sub-component of the machine
+
+    Returns
+    -------
+    available : bool
+        Whether or not the key is available
+    """
     if component == None:
         status = system_db["KeyRing"][machine]
     else:
@@ -70,8 +104,25 @@ def machine_key_available(system_db, machine, component = None):
 
     return available
 
-# async 
+
 def machine_key_release(system_db, machine, component = None):
+    """
+    Function for releasing the key to a component of the system.
+    
+    Parameters
+    ----------
+    system_db : dict (-like)
+        Database that tracks all the status of all components of the system
+    machine : str
+        Name of the machine in the KeyRing to checkout the keys for. 
+    component : int
+        Index specifying the sub-component of the machine
+
+    Returns
+    -------
+    system_db : dict (-like)
+        Updated Database that of all the statuses of all components of the system
+    """
 
     if component == None:
         system_db["KeyRing"][machine] = "Available"
@@ -86,19 +137,3 @@ def machine_key_release(system_db, machine, component = None):
     #This is the function that initializes the system db
     #The main thread running the autonomous campaign simply imports this system_db object 
 
-# def update_system_db(system_db, alt_db):
-#   #Read the alt_db for addresses and use that to update system_db
-
-#   for key in alt_db.keys():
-#     address = alt_db[key]["Address"]
-
-#     if address[0] == 1: #if the fluid is in the vial rack
-#       if address[1] == 0: #if the fluid is in the left vial rack
-#         mask = system_db["vial_rack_left_array"] == address[2]
-#         system_db["left_rack_assignments"][mask] = key
-
-#       if address[1] == 1: #if the fluid is in the right vial rack
-#         mask = system_db["vial_rack_right_array"] == address[2]
-#         system_db["right_rack_assignments"][mask] = key
-
-#   return system_db
