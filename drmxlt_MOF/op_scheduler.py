@@ -702,3 +702,18 @@ def interleave_reactor_preheating(unit_ops_df, heating_rate):
 
   return unit_ops_df
       
+def add_unit_ops_resource_collumn(unit_ops_df):
+    for idx, row in unit_ops_df.iterrows():
+      if row["UnitOP"] == "add_fluids":
+          unit_ops_df.loc[idx,"Resource"] = "Arm&Clamp"
+      if row["UnitOP"] == "react":
+          unit_ops_df.loc[idx,"Resource"] = f"Reactor {row["Reactor"]}"
+      if row["UnitOP"] == "pre_heat_reactor":
+          unit_ops_df.loc[idx,"Resource"] = f"Reactor {row["Reactor"]}"
+      if row["UnitOP"] == "sonicate":
+          unit_ops_df.loc[idx,"Resource"] = "Sonicator"
+      if row["UnitOP"] == "centrifuge":
+          unit_ops_df.loc[idx,"Resource"] = "Centrifuge"
+      if row["UnitOP"] == "rm_supernatent":
+          unit_ops_df.loc[idx,"Resource"] = "Arm&Clamp"
+    return unit_ops_df
