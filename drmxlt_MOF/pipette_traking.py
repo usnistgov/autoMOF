@@ -74,20 +74,26 @@ def get_next_pipette_tip(system_db, c):
 
     #Mark that that pipette tip index is used
     system_db["fresh_pipettes"][system_db["pipette_array"] == next_pipette] = 0
+    #Mark that the arm has a pipette tip
+    system_db["arm_tool"] = "Pipette"
     #TODO: push system db to Cordra
 
-def pip_rem(c):
+def pip_rem(system_db, c):
     """
     Remove a pipette tip
     
     Parameters
     ----------
+    system_db : dict (-like)
+        Database that tracks all the status of all components of the system
     c : NorthC9
         NorthC9 object for instrument control
     """
     c.goto_safe(p_remover_ap)
     c.goto(p_rem,vel=5,accel=5)
     c.move_z(292)
+
+    system_db["arm_tool"] = "Empty"
 
 
 fresh_pipettes = fresh_pipette_rack()
@@ -155,14 +161,18 @@ def get_next_needle_tip(system_db, c):
 
     #Mark that that needle tip index is used
     system_db["fresh_needles"][system_db["needle_array"] == next_needle] = 0
+    #Mark that the arm has a syringe needle
+    system_db["arm_tool"] = "SyringeNeedle"
     #TODO: push system db to Cordra
 
-def sn_rem(c):
+def sn_rem(system_db, c):
     """
     Remove a syringe needle
     
     Parameters
     ----------
+    system_db : dict (-like)
+        Database that tracks all the status of all components of the system
     c : NorthC9
         NorthC9 object for instrument control
     """
@@ -170,5 +180,6 @@ def sn_rem(c):
     c.goto(p_rem,vel=5,accel=5)
     c.move_z(292)
 
+    system_db["arm_tool"] = "Empty"
 
 fresh_needles = fresh_needle_rack()
