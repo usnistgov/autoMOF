@@ -5,9 +5,6 @@ import pandas as pd
 
 import plotly.express as px
 
-from drmxlt_MOF.op_scheduler import add_unit_ops_resource_collumn
-
-
 
 def plot_gantt_chart(unit_ops_df, write_to_file = False, write_directory = None, filename_suffix = None):
     """"
@@ -38,8 +35,6 @@ def plot_gantt_chart(unit_ops_df, write_to_file = False, write_directory = None,
         plotly figure of Gantt chart per sample
 
     """
-
-    unit_ops_df = add_unit_ops_resource_collumn(unit_ops_df)
 
 
     #Gantt Chart Per Unit OP

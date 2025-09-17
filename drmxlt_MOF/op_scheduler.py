@@ -5,7 +5,28 @@ import collections
 from ortools.sat.python import cp_model
 
 
+"""Approximate timings for unit ops:
+add_fluids : 2 mins
+react: variable * 4 positions
+wash macro: 2 solvents * 3 iterations = 6 total iterations
+  centrifuge : 40 mins * 6 positions
+  rm_supernatent : 2 mins
+  add_solvents : 2 mins
+  sonicate : 60 mins
+  rack_hold : 1 day 
+dry macro: 1 
+  centrifuge : 40 mins * 6 positions
+  rm_supernatent : 2 mins
+  dry_in_heater : 1 day * 4 positions
 
+Constraints:
+first centrifuge must start within 60 mins of the end of the reaction
+Constraints below might be solved with dummy weights
+  maybe - (if samples overlap in the centrifuge, then they need to start at the same time)
+  maybe - (centrifuge needs occupancy in pairs)
+
+
+"""
 
 #TODO encode some logic for the case where there are more reactions at the same temperature than there are positions in the same reactor!!!
 
@@ -164,9 +185,11 @@ def define_machine_IDs(reactors, centrifuge = 1, sonicator = 1):
 def create_unit_ops_df(sample_db, 
                        Add_fluids = True, 
                        React = True,
-                       Centrifuge = True,
-                       Remove_supernatent = True,
-                       Sonicate = True):
+                       Wash_Cycles = 6,
+                       Dry = True,
+                       Centrifuge = False,
+                       Remove_supernatent = False,
+                       Sonicate = False):
 
     """Function for creating a DataFrame of the Unit Ops and sub_unit ops
     for each sample. Uses hard-coded durations for the Arm&Clamp movements
@@ -181,7 +204,7 @@ def create_unit_ops_df(sample_db,
     for key in sample_db.keys():
         
         if Add_fluids == True:
-            sub_df = pd.DataFrame([[key, "add_fluids", 3*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "add_fluids", 2*6, None, 0]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
         if React == True:
@@ -191,16 +214,33 @@ def create_unit_ops_df(sample_db,
             sub_df = pd.DataFrame([[key, "react", time*6, None, temp]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
+        for i in range(Wash_Cycles):
+            sub_df = pd.DataFrame([[key, f"centrifuge_{i}", 40*6, None, 0],
+                                   [key, f"rm_supernatent_{i}", 2*6, None, 0],
+                                   [key, f"add_solvents_{i}", 2*6, None, 0],
+                                   [key, f"sonicate_{i}", 60*6, None, 0],
+                                   [key, f"rack_hold_{i}", 24*60*6, None, 0]], 
+                                   columns = header)
+            unit_ops_df = pd.concat([unit_ops_df, sub_df])
+
+        if Dry == True:
+            sub_df = pd.DataFrame([[key, f"centrifuge_{0+Wash_Cycles}", 40*6, None, 0],
+                                   [key, f"rm_supernatent_{0+Wash_Cycles}", 2*6, None, 0],
+                                   [key, "dry", 24*60*6, None, 100]], 
+                                   columns = header)
+            unit_ops_df = pd.concat([unit_ops_df, sub_df])
+           
+
         if Centrifuge == True:
-            sub_df = pd.DataFrame([[key, "centrifuge", 10*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "centrifuge", 40*6, None, 0]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
         if Remove_supernatent == True:
-            sub_df = pd.DataFrame([[key, "rm_supernatent", 3*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "rm_supernatent", 2*6, None, 0]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
         
         if Sonicate == True:
-            sub_df = pd.DataFrame([[key, "sonicate", 5*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "sonicate", 60*6, None, 0]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
     unit_ops_df["Status"] = "To Do"
@@ -710,10 +750,16 @@ def add_unit_ops_resource_collumn(unit_ops_df):
           unit_ops_df.loc[idx,"Resource"] = f"Reactor {row["Reactor"]}"
       if row["UnitOP"] == "pre_heat_reactor":
           unit_ops_df.loc[idx,"Resource"] = f"Reactor {row["Reactor"]}"
-      if row["UnitOP"] == "sonicate":
+      if "sonicate" in row["UnitOP"]:
           unit_ops_df.loc[idx,"Resource"] = "Sonicator"
-      if row["UnitOP"] == "centrifuge":
+      if "centrifuge" in row["UnitOP"]:
           unit_ops_df.loc[idx,"Resource"] = "Centrifuge"
-      if row["UnitOP"] == "rm_supernatent":
+      if "rm_supernatent" in row["UnitOP"]:
           unit_ops_df.loc[idx,"Resource"] = "Arm&Clamp"
+      if "rack_hold" in row["UnitOP"]:
+         unit_ops_df.loc[idx,"Resource"] = "VialRack"
+      if row["UnitOP"] == "dry":
+         unit_ops_df.loc[idx,"Resource"] = f"Reactor {row["Reactor"]}"
+
+         
     return unit_ops_df

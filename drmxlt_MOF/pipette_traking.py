@@ -18,8 +18,6 @@ pipette_order = np.array([i for i in range(2, 48, 3)] \
 """
 TODO: In the future we may want to have a rack for pipette tips and syringe needles that are in use and what samples they are assigned to. 
 create a new zipcode location for that, with assignments.
-
-TODO: We may also want to track what tools/end-effectors are attached to the Arm in the system_db.
 """
 
 
