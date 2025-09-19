@@ -166,7 +166,39 @@ async def unit_op_dependency(Sample_ID, experiment, unit_op_name):
     ready = unit_op_sample_status(Sample_ID, experiment, unit_op_name)
   return ready
 
+async def previous_op_dependency(Sample_ID, experiment, unit_op_name):
+  """
+  Asynchronous Function for waiting/depending for the previous task for this sample 
+  in experiment.unit_ops_df object to be "Completed".
+  Looks up the status of the previous op for this sample and waits for that to be completed. 
+  
+  Parameters
+  ----------
+  Sample_ID : str
+    Name of the sample
+  experiment : Experiment
+    A Experiment object that contains all the information unique to this experiment.
+  unit_op_name : str
+    The name of the unit current op 
 
+  Returns
+  -------
+  ready : bool
+    Whether or not the status is "Completed"
+  """
+  ready = False
+
+  df = experiment.unit_ops_df
+  sub_df = df[df["Sample Name"] == Sample_ID] #Find part of df for this sample
+  sub_indexes = sub_df.index.to_numpy() #Extract the indexes for those ops
+  op_index = sub_df[sub_df["UnitOP"] == unit_op_name].index[0] #Find the index for this op for this sample
+  prev_op_index = sub_indexes[np.argwhere(sub_indexes == op_index)[0][0] - 1] #Find the index for the previous op for this sample
+  previous_op = sub_df.loc[prev_op_index, "UnitOP"] #Extract the name of that previous op
+
+  while ready == False:
+    await asyncio.sleep(0.2)
+    ready = unit_op_sample_status(Sample_ID, experiment, previous_op)
+  return ready
 
 def unit_op_preheat_status(reactor, target_temperature, experiment, return_status = False, tolerance = 5.0):
   """
@@ -520,8 +552,64 @@ async def react_dependancy(Sample_ID, reactor, target_temperature, experiment, t
     ready = react_dependency_check(Sample_ID, reactor, target_temperature, experiment, t2, tolerance)
   return ready
 
+async def centrifuge_unload_dependency(Sample_ID, experiment, unit_op_name):
+  """
+  Asynchronous Function for waiting/depending for all the conditions to unload the centrifuge.
+  The samples must have the status "Spun" to be ready to unload.
+  
+  Parameters
+  ----------
+  Sample_ID : str
+    Name of the sample
+  experiment : Experiment
+    A Experiment object that contains all the information unique to this experiment.
+  unit_op_name : str
+    The name of the unit op 
 
+  Returns
+  -------
+  test : bool
+    Whether or not the samples are ready to unload from the centrifuge
+  """
+  ready = False
+  while ready == False:
+    await asyncio.sleep(0.2)
+    status = unit_op_sample_status(Sample_ID, experiment, unit_op_name, return_status = True)
+    ready = status == "Spun"
+  return ready
 
+async def global_centrifuge_dependency(samples, experiment, unit_op_name):
+  """
+  Asynchronous Function for waiting to start the centrifuge spinning.
+  All the samples must be loaded. 
+  Note: need to specify the unit_op_name since there might be several centrifuge operations for each sample
+    e.g. the name might be "centrifuge_0", or "centrifuge_1", etc. 
+  
+  Parameters
+  ----------
+  samples : list
+    List of strings of the names of the samples
+  experiment : Experiment
+    A Experiment object that contains all the information unique to this experiment.
+  unit_op_name : str
+    The name of the unit op 
+
+  Returns
+  -------
+  test : bool
+    Whether or not the centrifuge is ready to spin
+  """
+  ready = False
+  while ready == False:
+    await asyncio.sleep(0.2)
+    test_list = []
+    for Sample_ID in samples:
+      status = unit_op_sample_status(Sample_ID, experiment, unit_op_name, return_status = True)
+      test = status == "Loaded"
+      test_list.append(test)
+
+    ready = all(test_list)
+  return ready
 
 
 def initialize_sample(Sample_ID, c, cam, experiment, system_db, attempts_left = 96):
@@ -1101,6 +1189,177 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
   return system_db, experiment, sample_ready, reactor_preheated 
 
 
+async def Move_to_centrifuge(op_df_index, Sample_ID, c, system_db, experiment, destination):
+  """
+  Asynchronous Function to move sample to the centrifuge.
+  1. Move to the centrifuge destination
+  
+  Parameters
+  ----------
+  op_df_index : int
+    Index of this step in the unit_op_df
+  Sample_ID : str
+    Name of the sample
+  c : NorthC9
+    NorthC9 object for instrument control
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+  experiment : Experiment
+    A Experiment object that contains all the information unique to this experiment.
+  destination: nd.array
+    Address of the position on the centrifuge to move to
+
+  Returns
+  -------
+  system_db : dict (-like)
+      Updated database of all the statuses of all components of the system
+  """
+  print(f"Op Index {op_df_index}_sub 1 system_db")
+  print(system_db["KeyRing"])
+ 
+
+  #Pre-move check
+  Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  #Move vial to reactor
+  Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  c.goto_safe(home)
+
+  print(f"Finished Op Index {op_df_index} sub 1")
+  print(experiment.unit_ops_df)
+  return system_db
+
+async def Move_from_centrifuge(op_df_index, Sample_ID, c, system_db, experiment):
+  """
+  Asynchronous Function for moving sample from centrifuge
+  1. Move to the vial rack
+  
+  Parameters
+  ----------
+  op_df_index : int
+    Index of this step in the unit_op_df
+  Sample_ID : str
+    Name of the sample
+  c : NorthC9
+    NorthC9 object for instrument control
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+  experiment : Experiment
+    A Experiment object that contains all the information unique to this experiment.
+
+  Returns
+  -------
+  system_db : dict (-like)
+      Updated database of all the statuses of all components of the system
+  """
+  print(f"Op Index {op_df_index}_sub 3 system_db")
+  print(system_db["KeyRing"])
+
+  destination = find_open_vial_rack_addresses(system_db)
+
+
+  #Pre-move check
+  Premove_Check_(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  #Move vial to vial rack
+  Move_Sample(Sample_ID, destination, experiment.sample_db, system_db, c)
+
+  c.goto_safe(home)
+
+  print(f"Finished Op Index {op_df_index} sub 3")
+  print(experiment.unit_ops_df)
+  return system_db
+
+async def Centrifuge(op_df_index, Sample_ID, c, system_db, experiment, op_name):
+  """
+  Move the samples to the centrifuge
+  Update status to ready
+  Wait until all the other samples and balast have been loaded
+  And until the centifuge has completed.
+  Move samples to the vial rack
+  
+  """
+  print(f"Testing {Sample_ID} centrifuge dependencies")
+  #Wait for previous op for this sample to finish
+  sample_ready = await previous_op_dependency(Sample_ID, experiment, op_name)
+
+
+  #Check out the keys for the Arm&Clamp, and for the centrifuge position
+  system_db = await machine_key_checkout(system_db, "Arm&Clamp")
+  position = find_open_centrifuge_adresses(system_db)
+  destination = np.array([6, 0, position])
+
+  system_db = await machine_key_checkout(system_db, "Centrifuge", position)
+
+  print(f"Op Index {op_df_index} system_db")
+  print(system_db["KeyRing"])
+
+  
+  #Move sample to centrifuge
+  system_db = await Move_to_centrifuge(op_df_index,Sample_ID, c, system_db, experiment, destination)
+  # Release Key for Arm&Clamp
+  system_db = machine_key_release(system_db, "Arm&Clamp")
+  #Update the unit_ops_df
+  experiment = update_unit_op_sample_status(Sample_ID, experiment, op_name, "Loaded")
+
+  write_db_files(system_db, experiment)
+
+  #Wait for the centrifuge to complete
+  sample_spun = await centrifuge_unload_dependency(Sample_ID, experiment, op_name)
+
+  #Check out keys for Arm&Clamp again
+  system_db = await machine_key_checkout(system_db, "Arm&Clamp")
+
+  #Move sample from the centrifuge
+  system_db = await Move_from_centrifuge(op_df_index, Sample_ID, c, system_db, experiment)
+
+  #Update the unit_ops_df
+  experiment = update_unit_op_sample_status(Sample_ID, experiment, op_name, "Complete")
+  write_db_files(system_db, experiment)
+  print(f"Finished Op Index {op_df_index}")
+  print(experiment.unit_ops_df)
+  return system_db, experiment
+
+
+
+
+
+
+
+
+
+async def Global_Centrifuge(op_df_index, samples, c, system_db, experiment, op_name):
+  """
+  Check to make sure all the samples and balast has been loaded,
+  Then start the centrifuge
+  """
+
+  all_samples_ready = await global_centrifuge_dependency(samples, experiment, op_name)
+
+  system_db = await machine_key_checkout(system_db, "Centrifuge")
+
+  #Find the duration of this centrifuge OP based on the Oth sample's duration
+  duration = experiment.unit_ops_df[(experiment.unit_ops_df["Sample Name"] == samples[0]) &
+                                    (experiment.unit_ops_df["UnitOP"] == op_name)]["Duration (Ds)"].values[0]
+  duration *= 10 #Convert from Ds to s
+
+
+  c.centrifuge_start()
+
+  await asyncio.sleep(duration)
+
+  c.centrifuge_stop()
+
+  system_db = await machine_key_release(system_db, "Centrifuge")
+
+  for Sample_ID in samples:
+    experiment = update_unit_op_sample_status(Sample_ID, experiment, op_name, "Spun")
+
+  write_db_files(system_db, experiment)
+  print(f"Finished Op Index {op_df_index}")
+  print(experiment.unit_ops_df)
+  return system_db, experiment
 
 
 
@@ -1128,28 +1387,51 @@ def unwrap_unit_ops_df(unit_ops_df, c, t, cam, system_db, experiment ):
   unit_op_list : list
     List of all the tasks in the unit_ops_df
   """
+  #find all the centrifuge tasks:
+  cent_sub_df = unit_ops_df[unit_ops_df["UnitOP"].str.contains("centrifuge")]
+  cent_start_times = np.unique(cent_sub_df["Start Time (Ds)"].values)
+  global_centrifuge_task_dict = {} 
+  for time in cent_start_times:
+      sub_cent_sub_df = cent_sub_df[cent_sub_df["Start Time (Ds)"] == time]
+
+      samples = sub_cent_sub_df["Sample Name"].values
+
+      min_index = np.min(sub_cent_sub_df.index)
+
+      global_centrifuge_task_dict[min_index] = samples
   
+  #Start a container for all the tasks
   unit_op_list = []
   
   for idx, row in unit_ops_df.iterrows():
 
       Sample_ID = row["Sample Name"]
       unit_op_type = row["UnitOP"]
-
+      print(unit_op_type)
       if unit_op_type == "pre_heat_reactor":
           reactor = row["Reactor"]
           target_temperature = row["Reactor Temperature (C)"]
 
           unit_op_task = [Preheat_reactor(idx, reactor, target_temperature, c, t, system_db, experiment)]
 
-      if unit_op_type == "add_fluids":
+      elif unit_op_type == "add_fluids":
           unit_op_task = [Add_fluids(idx, Sample_ID, c, cam, system_db, experiment)]
 
-      if unit_op_type == "react":
+      elif unit_op_type == "react":
           unit_op_task = [React(idx, Sample_ID, c, t, system_db, experiment)]
 
+      elif "centrifuge" in unit_op_type:
+          if idx in global_centrifuge_task_dict.keys():
+            unit_op_task = [Global_Centrifuge(idx, global_centrifuge_task_dict[idx], c, system_db, experiment, unit_op_type)]
+            unit_op_task = unit_op_task + [Centrifuge(idx, Sample_ID, c, system_db, experiment, unit_op_type)]
+          else:
+            unit_op_task = [Centrifuge(idx, Sample_ID, c, system_db, experiment, unit_op_type)]
+          #TODO: also include launching the Global Centrifuge task for this set of samples. 
+      else:
+          unit_op_task = [None]
 
-      unit_op_list.append(unit_op_task[0])
+
+      unit_op_list = unit_op_list + unit_op_task
   print("UnitOPs =", len(unit_op_list))
   return unit_op_list
 

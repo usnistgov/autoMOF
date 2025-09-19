@@ -165,12 +165,13 @@ def assign_reactors(unit_ops_df, number_of_reactors, positions_in_reactor):
       sub_df = reactor_df[reactor_df["Reactor"] == reactor]
 
       #Get the list of temperatures of that reactor
-      temps = list(sub_df["Reactor Temperature (C)"])[0]
+      if len(sub_df) > 0:
+        temps = list(sub_df["Reactor Temperature (C)"])[0]
 
-      #If the reaction temperature is in the list of temperatures for that reactor
-      if temperature in temps:
-        #Assign that reactor
-        unit_ops_df.at[i, "Reactor"] = reactor
+        #If the reaction temperature is in the list of temperatures for that reactor
+        if temperature in temps:
+            #Assign that reactor
+            unit_ops_df.at[i, "Reactor"] = reactor
 
 
   return unit_ops_df, reactor_df
@@ -846,7 +847,17 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
     
     solver = cp_model.CpSolver()
+    solver.parameters.randomize_search = True
+
+    solver.parameters.log_search_progress = True
+    # Custom log function, for example, using the Python logging module instead of stdout
+    # Useful in a Jupyter notebook, where logging to stdout might not be visible
+    solver.log_callback = print  # (str)->None
+    # If using a custom log function, you can disable logging to stdout
+    solver.parameters.log_to_stdout = False
     status = solver.solve(model)
+
+    print("solver status", solver.status_name(status))
 
     # ~~~~~~~~~~~~~~~~~~~
     # Record the solution

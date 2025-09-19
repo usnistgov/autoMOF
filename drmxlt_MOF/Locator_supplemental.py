@@ -54,6 +54,8 @@ Zipcode system
 3 => [clamp, 0, 0]
 4 => [reactor, 0 to 7, reactor index 0-3]
 5 => [syringe pump, pump 1-3, splitter valve]  #note syringe pump 0 is in the arm
+6 => [centrifuge, 0, index 0-5]
+7 => [sonicator, 0, 0]
 
 '''
 ################################################################################
