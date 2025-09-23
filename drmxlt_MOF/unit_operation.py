@@ -362,8 +362,10 @@ async def pre_heat_monitor(reactor, target_temperature, experiment, system_db, t
     Target temperature of this pre_heat task in degrees C
   experiment : Experiment
     A Experiment object that contains all the information unique to this experiment.
-  t2 : NorthC9
+  t : NorthC9
     NorthC9 object for temperature control
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
   tolerance : float
     Tolerance on difference between measured temperature and target temperature to pass, in degreees C
 
@@ -1153,8 +1155,10 @@ async def React(op_df_index,Sample_ID, c, t, system_db, experiment):
 
   #Check out the keys for the arm and for the reactor position:
   system_db = await machine_key_checkout(system_db, "Arm&Clamp")
-  position = find_open_reactor_addresses(system_db, reactor_id)
-  destination = np.array([4, reactor_id, position])  
+  destination =  find_open_reactor_addresses(system_db, reactor_id)
+  position = destination[2]
+  # position = find_open_reactor_addresses(system_db, reactor_id)
+  # destination = np.array([4, reactor_id, position])  
   system_db = await machine_key_checkout(system_db, f"Reactor_{reactor_id}", position)
 
   print(f"Op Index {op_df_index} system_db")
@@ -1338,6 +1342,8 @@ async def Global_Centrifuge(op_df_index, samples, c, system_db, experiment, op_n
   all_samples_ready = await global_centrifuge_dependency(samples, experiment, op_name)
 
   system_db = await machine_key_checkout(system_db, "Centrifuge")
+
+  #TODO: Check if we need to add balast to the centrifuge, then do that if needed.
 
   #Find the duration of this centrifuge OP based on the Oth sample's duration
   duration = experiment.unit_ops_df[(experiment.unit_ops_df["Sample Name"] == samples[0]) &

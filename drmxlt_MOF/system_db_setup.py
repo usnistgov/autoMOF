@@ -1,9 +1,15 @@
 from drmxlt_MOF.pipette_traking import *
 from drmxlt_MOF.vial_tracking import *
-from drmxlt_MOF.reactor_traking import *
+# from drmxlt_MOF.reactor_traking import *
 
 from time import sleep
 import asyncio
+
+num_reactors = 8
+positions_per_reactor = 4
+
+positions_in_centrifuge = 6
+
 
 system_db = {} # Container for information about the system
 
@@ -17,8 +23,8 @@ system_db['fresh_needles'] = fresh_needles #An array of which pipettes are still
 system_db['vial_racks'] = ['rack_left', 'rack_right']
 system_db['vial_rack_left_array'] = vial_rack_left_array
 system_db['vial_rack_right_array'] = vial_rack_right_array
-system_db['loaded_rack_left'] = loaded_vial_racks('left')
-system_db['loaded_rack_right'] = loaded_vial_racks('right')
+system_db['loaded_rack_left'], system_db['loaded_rack_right'] = loaded_vial_racks('left')
+# system_db['loaded_rack_right'] = loaded_vial_racks('right')
 system_db['left_rack_assignments'] = left_rack_assignments
 system_db['right_rack_assignments'] = right_rack_assignments
 
@@ -28,24 +34,68 @@ system_db['clamp_assignment'] = "Empty"
 
 system_db["arm_tool"] = "Empty"
 
+
+#Setting up a dictionary to keep track of reactor status
+reactor = {}
+
+for i in range(num_reactors):
+  reactor[i] = {"Block ID": i,
+                     "Temperature (C)": None,
+                     "Hat Status": "Off"}
+
+  for j in range(positions_per_reactor):
+    reactor[i][j] = {"Position": j,
+                          "Assignment": "Empty"}
 system_db["reactor"] = reactor
 
+#Setting up a dictionary to keep track of centrifuge status
+centrifuge = {}
 
-system_db["KeyRing"] = {"Arm&Clamp": "Available",
-                        "Reactor_0": "Available",
-                        "Reactor_0_0": "Available",
-                        "Reactor_0_1": "Available",
-                        "Reactor_0_2": "Available",
-                        "Reactor_0_3": "Available",
-                        "Reactor_1": "Available",
-                        "Reactor_1_0": "Available",
-                        "Reactor_1_1": "Available",
-                        "Reactor_1_2": "Available",
-                        "Reactor_1_3": "Available",
-                        "Centrifuge": "Available",
-                        "Centrifuge_0": "Available",
-                        "Centrifuge_1": "Available",
-                        "Sonicator": "Available"}
+for i in range(positions_in_centrifuge):
+    centrifuge[i] = {"Position" : i,
+                     "Assignment" : "Empty"}
+
+half_turn = positions_in_centrifuge // 2
+
+loading_order = []
+for i in range(half_turn):
+    loading_order.append(i)
+    loading_order.append(i + half_turn)
+
+centrifuge["Loading Order"] = loading_order
+
+balast = {}
+for i in range(3):
+    balast[i] = {"Name" : f"Balast_{i}",
+                 "Address" : np.array([1,1,i])}
+    
+    mask = system_db["vial_rack_right_array"] == i 
+    system_db["loaded_rack_right"][mask] = 1
+    system_db["right_rack_assignments"][mask] = f"Balast_{i}"
+
+centrifuge["Balast"] = balast
+
+system_db["centrifuge"] = centrifuge
+
+
+
+
+system_db["KeyRing"] = {"Arm&Clamp": "Available"}
+
+for reactor in range(num_reactors):
+    new_reactor_key = f"Reactor_{reactor}"
+    system_db["KeyRing"][new_reactor_key] = "Available"
+
+    for position in range(positions_per_reactor):
+        new_position_key = f"Reactor_{reactor}_{position}"
+        system_db["KeyRing"][new_position_key] = "Available"
+
+system_db["KeyRing"]["Centrifuge"] = "Available"
+for position in range(positions_in_centrifuge):
+    new_position_key = f"Centrifuge_{position}"
+    system_db["KeyRing"][new_position_key] = "Available"
+
+system_db["KeyRing"]["Sonicator"] = "Available"
 
 
 async def machine_key_checkout(system_db, machine, component = None):
@@ -142,3 +192,4 @@ def machine_key_release(system_db, machine, component = None):
     #This is the function that initializes the system db
     #The main thread running the autonomous campaign simply imports this system_db object 
 
+ 
