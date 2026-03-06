@@ -7,23 +7,23 @@ from drmxlt_MOF.op_scheduler import create_unit_ops_df, assign_reactors, define_
 class Experiment():
     """"Base class for all experiments"""
     
-    #number of initial samples
-    initial_samples : int = 16
-    batch_size : int = 4
-    #sample code length in number of characters
-    code_length : int = 4 
-
-    #sample db
-    sample_db : dict = {}
-    #TODO: push sample db to Cordra?
-        #This is the initialization of the sample_db
-
-    #fluids
-    fluid_db : dict = {}
-    #TODO: push fluid db to Cordra?
-        #This is the initialization of the fluid_db
-
     def __init__(self):
+        #number of initial samples
+        self.initial_samples : int = 16
+        self.batch_size : int = 4
+        #sample code length in number of characters
+        self.code_length : int = 4 
+
+        #sample db
+        self.sample_db : dict = {}
+        #TODO: push sample db to Cordra?
+            #This is the initialization of the sample_db
+
+        #fluids
+        self.fluid_db : dict = {}
+        #TODO: push fluid db to Cordra?
+            #This is the initialization of the fluid_db
+
         self.generate_sample_db()
 
     def generate_sample_db(self):

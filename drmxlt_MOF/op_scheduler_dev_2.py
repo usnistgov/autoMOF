@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 import collections
+import itertools
 from ortools.sat.python import cp_model
 
 from drmxlt_MOF.experiments import Ternary_colordemo, Cu_BTC
@@ -320,208 +321,6 @@ def create_unit_ops_df(sample_db,
 
     return unit_ops_df, op_order
 
-
-def build_job_shop_var_containers(unit_ops_df, num_reactors, op_order):
-    """
-    Function to build the containers to keep track of the variables for the job shop problem.
-    Note that the reactors for the react UnitOPs are assigned by the assign_reactors function,
-    but the reactor assignments for any drying steps are as yet unknown, and will be variables.
-
-    This function creates the initial containers, and populates them with any known quatities.
-    Any job shop variables are assigned subsequently, overwiting the NaNs.
-
-    Parameters
-    ----------
-    unit_ops_df : pd.DataFrame
-        DataFrame that keeps track of each step of each experiment
-    num_reactors : int
-        The number of reactors on the platform
-    op_order : list
-        List of the names of each UnitOP in the order they should happen for each sample
-
-    Returns
-    -------
-    resource_dict : dict
-        Dictionary of what resource each UnitOP is using for each sample. 
-        Resources are counted by machine_ID, O is Arm&Clamp then reactors, the centrifuges, then sonicators, the vial rack
-    interval_dict : dict
-        Dictionary of each interval variable for each UnitOP for each sample.
-    """
-
-    #Treating the dictionary as a 2D array, columns are UnitOPs, rows are samples.
-    #Column headers
-    columns = ["Sample Name"] + op_order
-    #Row headers
-    rows = unit_ops_df["Sample Name"].unique().tolist()
-
-    #Create initial containers with NaNs for the empty variables
-    interval_dict = {"Sample Name": rows}
-    for op in op_order:
-        interval_dict[op] = (np.empty(len(rows))*np.nan).tolist()
-    #Make an independant copy
-    resource_dict = copy.deepcopy(interval_dict)
-    
-    #Populate the resource dict with the reactor assignments for the react UnitOPs
-    resource_dict["react"] =  (unit_ops_df[unit_ops_df["UnitOP"] == "react"]["Reactor"].to_numpy() + 1).tolist()
-
-    for col in resource_dict.keys():
-        if col == "add_fluids":
-            resource_dict[col] = (np.zeros(len(rows), dtype=int)).tolist()
-        if "centrifuge" in col:
-            resource_dict[col] = (np.zeros(len(rows), dtype=int) + num_reactors + 1).tolist()
-        if "rm_supernatent" in col:
-            resource_dict[col] = (np.zeros(len(rows), dtype=int)).tolist() 
-        if "add_solvents" in col:
-            resource_dict[col] = (np.zeros(len(rows), dtype=int)).tolist() 
-        if "sonicate" in col:
-            resource_dict[col] = (np.zeros(len(rows), dtype=int) + num_reactors + 2).tolist()
-        if "rack_hold" in col:
-            resource_dict[col] = (np.zeros(len(rows), dtype=int) + num_reactors + 3).tolist()
-
-    return resource_dict, interval_dict
-
-def dict_indexer(dictionary, sample, op):
-    """
-    Function to index into dictionary by sample (aka row), and UnitOP (aka column)
-    
-    Parameters
-    ----------
-    dictionary : dict
-        Dictionary to index into
-    sample : str
-        Name of the sample, indexes into the rows
-    op : str
-        Name of the UnitOP, indexes into the column
-    
-    Returns
-    -------
-    dictionary[op][dict_ind] : any
-        Object at that column and row index
-    """
-    dict_ind = dictionary["Sample Name"].index(sample)
-    return dictionary[op][dict_ind]
-
-def dict_assigner(dictionary, sample, op, new_value):
-    """
-    Function to assign a new value to a particular sample (aka row), and UnitOP (aka column) index
-    
-    Parameters
-    ----------
-    dictionary : dict
-        Dictionary to assign a new value to at an particular index
-    sample : str
-        Name of the sample, indexes into the rows
-    op : str
-        Name of the UnitOP, indexes into the column
-    new_value : any
-        Object to assign to that index in the dictionary
-    
-    Returns
-    -------
-    dictionary : dict
-        Dictionary with new value assigned
-    """
-    dict_ind = dictionary["Sample Name"].index(sample)
-    dictionary[op][dict_ind] = new_value
-    return dictionary
-
-def dict_row_slicer(dictionary, sample):
-    """
-    Function to find all the rows for a sample (aka row)
-
-    Parameters
-    ----------
-    dictionary : dict
-        Dictionary to index into
-    sample : str
-        Name of the sample, indexes into the rows
-
-    Returns
-    -------
-    values : list
-        List of objects in that row
-    """
-    values = []
-    for col in dictionary.keys():
-        if col != "Sample Name":
-            value = dict_indexer(dictionary, sample, col)
-            values.append(value)
-    return values
-    
-
-def dict_searcher(dictionary, value):
-    """
-    Function to find all the (sample, op) pairs that use a particular resource (value in the dictionary), then report those intervals (indexes)
-    
-    Parameters
-    ----------
-    dictionary : dict
-        Dictionary to index into
-    value : int
-        value to search the dictionary  for
-    
-    Returns
-    -------
-    discovered_inds : list
-        List of tuples of indexes (sample, op) that have that value.
-    """
-    discovered_inds = []
-    for key in dictionary.keys():
-        try:
-            dict_index = np.where(np.array(dictionary[key]) == value)[0]
-            samples = [dictionary["Sample Name"][i] for i in dict_index]
-            ops = [key] * len(samples)
-            for sample, op in zip(samples, ops):
-                discovered_inds.append((sample, op))
-        except:
-            pass
-    return discovered_inds
-
-def dict_reporter(dictionary, inds):
-    """
-    Funtion to report all the values of a dictionary at particular (sample, op) indexes
-
-    Parameters
-    ----------
-    dictionary : dict
-        Dictionary to index into
-    inds : list
-        List of tuples of (sample, op).
-    
-    Returns
-    -------
-    values : list
-        List of objects that use that resource.
-    """
-    values = []
-    for i in inds:
-        value = dict_indexer(dictionary, i[0], i[1])
-        values.append(value)
-
-    return values
-
-def dict_multi_assigner(dictionary, inds, new_value):
-    """
-    Function to assign a new value to several indexes (sample, op)
-
-    Parameters
-    ----------
-    dictionary : dict
-        Dictionary to index into
-    inds : list
-        List of tuples of (sample, op)
-    new_value : any
-        Object to assign to that index in the dictionary
-
-    Returns
-    -------
-    dictionary : dict
-        Dictionary with new values assigned
-    """
-    for i in inds:
-        dictionary = dict_assigner(dictionary, i[0], i[1], new_value)
-    return dictionary
-
 def add_unit_ops_resource_collumn(unit_ops_df):
     """
     Fuction to assign the name of the resource to each UnitOP for each sample in the unit_ops_df.
@@ -559,10 +358,158 @@ def add_unit_ops_resource_collumn(unit_ops_df):
       if row["UnitOP"] == "dry":
           unit_ops_df.loc[idx,"Resource"] = f"Reactor {row["Reactor"]}"
 
-         
-    return unit_ops_df
 
-def solve_job_shop_schedule(unit_ops_df, num_reactors, op_order, plot = False):
+class Task:
+    def __init__(self, task_id, name, duration, reactor, reactor_temp):
+        self.task_id = task_id
+        self.name = name
+        self.duration = duration
+        self.reactor = reactor
+        self.reactor_temp = reactor_temp
+        self.resource = None
+        self.start_var = None
+        self.end_var = None
+        self.interval_var = None
+
+    def assign_resouce(self, num_reactors):
+        if "add_fluids" in self.name:
+            self.resource = 0
+        elif "react" in self.name:
+            self.resource = 1 + self.reactor
+        elif "centrifuge" in self.name:
+            self.resource = num_reactors + 1
+        elif "rm_supernatent" in self.name:
+            self.resource = 0
+        elif "add_solvents" in self.name:
+            self.resource = 0
+        elif "sonicate" in self.name:
+            self.resource = num_reactors + 2
+        elif "rack_hold" in self.name:
+            self.resource = num_reactors + 3
+        elif "dry" in self.name:
+            self.resource = np.arange(num_reactors) + 1
+
+    def create_interval_var(self, model, horizon):
+        if "dry" not in self.name:
+            duration_int = int(np.ceil(self.duration))
+            self.start_var = model.new_int_var(0, horizon, f"start_{self.task_id}")
+            self.end_var = model.new_int_var(0, horizon, f"end_{self.task_id}")
+            self.interval_var = model.new_interval_var(self.start_var, duration_int, self.end_var, f"interval_{self.task_id}")
+        elif "dry" in self.name:
+            duration_int = int(np.ceil(self.duration))
+            bool_vars = []
+            start_vars = []
+            end_vars = []
+            interval_vars = []
+            for resource in self.resource:
+                bool_var = model.NewBoolVar(f"bool_{self.task_id}_{resource}") #Bool flag to choose this resouce
+
+                start_var = model.new_int_var(0, horizon, f"start_{self.task_id}_{resource}")
+                end_var = model.new_int_var(0, horizon, f"end_{self.task_id}_{resource}")
+
+                optional_interval = model.NewOptionalIntervalVar(start_var,
+                                                                 duration_int,
+                                                                 end_var,
+                                                                 bool_var,
+                                                                 f"optional_interval_{self.task_id}_{resource}")
+                
+                bool_vars.append(bool_var)
+                start_vars.append(start_var)
+                end_vars.append(end_var)
+                interval_vars.append(optional_interval)
+            self.bool_vars = bool_vars
+            self.start_var = start_vars
+            self.end_var = end_vars
+            self.interval_var = interval_vars
+
+class Job:
+    def __init__(self, job_id, name):
+        self.job_id = job_id
+        self.name = name
+        self.tasks = []
+
+    def add_task(self, task):
+        self.tasks.append(task)
+
+class Batch:
+    def __init__(self, num_reactors, horizon):
+        self.num_reactors = num_reactors
+        self.horizon = horizon
+        self.jobs = []
+        self.model = cp_model.CpModel()
+
+    def add_job(self, job):
+        self.jobs.append(job)
+
+def find_tasks_using_resource(batch, resource):
+    tasks = []
+    for job in batch.jobs:
+        for task in job.tasks:
+            if "dry" not in task.name:
+                if task.resource == resource:
+                    tasks.append(task)
+            elif "dry" in task.name:
+                for i, r in enumerate(task.resource):
+                    if r == resource:
+                        tasks.append(task)
+    return tasks
+
+def find_tasks_of_type(batch, task_name):
+    tasks = []
+    for job in batch.jobs:
+        for task in job.tasks:
+            if task_name in task.name:
+                tasks.append(task)
+    return tasks
+
+def find_tasks_resource_type(batch, task_name, resource):
+    tasks = []
+    for job in batch.jobs:
+        for task in job.tasks:
+            if task_name in task.name:
+                if task.resource == resource:
+                    tasks.append(task)
+    return tasks
+
+def find_intervals_using_resouce(batch, resource):
+    intervals = []
+    for job in batch.jobs:
+        for task in job.tasks:
+            if "dry" not in task.name:
+                if task.resource == resource:
+                    intervals.append(task.interval_var)
+            elif "dry" in task.name:
+                for i, r in enumerate(task.resource):
+                    if r == resource:
+                        intervals.append(task.interval_var[i])
+
+    return intervals
+
+def find_intervals_of_task(batch, task_name):
+    intervals = []
+    for job in batch.jobs:
+        for task in job.tasks:
+            if task_name in task.name:
+                intervals.append(task.interval_var)
+    return intervals
+
+def find_intervals_resource_task(batch, task_name, resource):
+    intervals = []
+    for job in batch.jobs:
+        for task in job.tasks:
+            if "dry" not in task.name:
+                if task_name in task.name:
+                    if task.resource == resource:
+                        intervals.append(task.interval_var)
+            elif "dry" in task.name:
+                if task_name in task.name:
+                    for i, r in enumerate(task.resource):
+                        if r == resource:
+                            intervals.append(task.interval_var[i])
+    return intervals
+
+
+def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
     """
     Function to create, then solve the job shop schedule problem.
 
@@ -582,261 +529,167 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, op_order, plot = False):
         DataFrame that keeps track of each step of each experiment
     """
 
-    #Find the maximum possible time for all UnitOPs performed in sequence
+    #Collect a list of all the samples
+    samples = unit_ops_df["Sample Name"].unique().tolist()
+
+    #Find the niave time for the batch of experiments (simple sum of all durations)
     horizon = int(np.sum(np.ceil(unit_ops_df["Duration (Ds)"])))
 
-    # Named tuple to store information about created variables.
-    task_type = collections.namedtuple("task_type", "start end interval")
-    # Named tuple to manipulate solution information.
-    assigned_task_type = collections.namedtuple("assigned_task_type", "start job index duration")
+    #Create Batch object for the experiment and populate the Jobs and Tasks
+    batch = Batch(num_reactors=num_reactors, horizon=horizon)
+    for i, sample in enumerate(samples):
+        job = Job(job_id= i, name = sample)
 
-    #Initialize the model
-    model = cp_model.CpModel()
+        sub_df = unit_ops_df[unit_ops_df["Sample Name"] == sample]
 
-    #Create the inital cotainers to keep track of resources and intervals
-    resource_dict, interval_dict = build_job_shop_var_containers(unit_ops_df, num_reactors, op_order)
+        for j in sub_df.index:
+            task = Task(task_id=j,
+                        name = sub_df.loc[j, "UnitOP"],
+                        duration= sub_df.loc[j, "Duration (Ds)"],
+                        reactor = sub_df.loc[j, "Reactor"],
+                        reactor_temp = sub_df.loc[j, "Reactor Temperature (C)"])
+            task.assign_resouce(batch.num_reactors)
+            task.create_interval_var(batch.model, batch.horizon)
+            job.add_task(task)
 
-    #Create some additional containers for the drying UnitOPs
-    dry_interval_vars = []
-    dry_machine_vars = []
-    dry_bool_vars = []
-    optional_intervals = []
-    dryer_assignments = []
-
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Creating all the variables for the job shop problem
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    #Create new interval variables for all UnitOps EXCEPT the drying OPs
-    for col in interval_dict.keys():
-        for i, sample in enumerate(interval_dict["Sample Name"]):
-            if col != "Sample Name":
-                if not "dry" in col:
-                    # duration = unit_ops_df[(unit_ops_df["Sample Name"] == sample) & 
-                    #                     (unit_ops_df["UnitOP"] == col)]["Duration (Ds)"].values[0]
-                    duration = unit_ops_df[(unit_ops_df["Sample Name"] == sample) & 
-                                        (unit_ops_df["UnitOP"] == col)]["Duration (Ds)"].values
-                    if len(duration) > 0:
-                        duration = duration[0]
-                        duration = int(np.ceil(duration))
-                        suffix = f"_{sample}_{col}"
-                        start_var = model.new_int_var(0, horizon, "start" + suffix) #Start of this task can be anywhere between 0 and horizon
-                        end_var = model.new_int_var(0, horizon, "end" + suffix) #End of this task can be anywhere between 0 and horizon
-                        interval_var = model.new_interval_var(start_var, duration, end_var, "interval" + suffix) #Model the interval between start and end
-                        task = task_type(start=start_var, end=end_var, interval=interval_var) #Create a task
-                        interval_dict = dict_assigner(interval_dict, sample, col, task)#Add this task to dictionary of all tasks
-
-
-    #Create a new bool_var and optional_interval_var for every dry OP for every reactor
-    for i in range(num_reactors):
-        m = i + 1 #Convert to Machine ID
-        optional_intervals_per_machine = []
-        for i, sample in enumerate(interval_dict["Sample Name"]):
-            suffix = f"_dry_{sample}_{m}"
-            b = model.NewBoolVar("bool_" + suffix)
-            dryer_assignments.append(b)
-            duration = unit_ops_df[(unit_ops_df["Sample Name"] == sample) & 
-                                        (unit_ops_df["UnitOP"] == "dry")]["Duration (Ds)"].values[0]
-            duration = int(np.ceil(duration))
-            start_var = model.new_int_var(0, horizon, "start" + suffix) #Start of this task can be anywhere between 0 and horizon
-            end_var = model.new_int_var(0, horizon, "end" + suffix) #End of this task can be anywhere between 0 and horizon
-            optional_interval = model.NewOptionalIntervalVar(start_var,
-                                                            duration,
-                                                            end_var, 
-                                                            b, 
-                                                            "Optional_interval"+suffix)
-            optional_intervals_per_machine.append(optional_interval)
-        optional_intervals.append(optional_intervals_per_machine)
-
-    #Assign the list of optional interval vars fro the dry OPs to the interval dict
-    for sample in interval_dict["Sample Name"]:
-        dry_sample_intervals = []
-        for interval in optional_intervals:
-            for inv in interval:
-                if sample in inv.name:
-                    dry_sample_intervals.append(inv)
-
-        interval_dict = dict_assigner(interval_dict, sample, "dry", dry_sample_intervals)
+        batch.add_job(job)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Applying all the constraints for the job shop problem
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    #Find all the tasks that use the Arm&Clamp, and impose no_overlap constraint
-    dict_inds = dict_searcher(resource_dict, 0)
-    arm_tasks = dict_reporter(interval_dict, dict_inds)
-    arm_intervals = [task.interval for task in arm_tasks]
-    model.add_no_overlap(arm_intervals)
+    #Find all the tasks using the Arm&Clamp, and impose no_overlap constraint
+    arm_intervals = find_intervals_using_resouce(batch, 0)
+    batch.model.add_no_overlap(arm_intervals)
 
-    #For each sample all the ops must happen in order
-    for i, sample in enumerate(interval_dict["Sample Name"]):
-        #Find all the tasks for that sample
-        sample_tasks = dict_row_slicer(interval_dict, sample)
+    #For each sample the ops must happen in order
+    for job in batch.jobs:
+        for i, task in enumerate(job.tasks):
+            if i != 0:
+                if "dry" not in task.name:
+                    batch.model.add(job.tasks[i-1].end_var <= task.start_var)
 
-        #Iterate through those tasks
-        for i, sample_task in enumerate(sample_tasks):
-            if i != 0: 
-                #If the task is a interval task_type (most OPs are), then it must start after the previous task ends
-                if type(sample_task) == task_type:
-                    model.add(sample_tasks[i-1].end <= sample_task.start)
-                #If the task is a list (the drying tasks are), then iteratate through that list and consrain each.
-                # Note, assumes that the previous task is a interval task_type
-                # Works if the drying task is the last task for each sample. 
-                elif type(sample_task) == list:
-                    for alt_task in sample_task:
-                        model.add(sample_tasks[i-1].end <= alt_task.start_expr()) 
+                elif "dry" in task.name:
+                    for alt_task_start in task.start_var:
+                        batch.model.add(job.tasks[i-1].end_var <= alt_task_start)
 
-    #Constrain the Capacity of the Dry Ops
-    #Constrain bool_vars so each sample can only choose one
-    for sample in resource_dict["Sample Name"]:
-        truth_list = [sample in b.name for b in dryer_assignments]
-        indexs = np.where(np.array(truth_list) == True)[0]
-        bools_for_sample = [dryer_assignments[i] for i in indexs]
-        model.AddExactlyOne(bools_for_sample)
+    #Constrain the bool_vars for the "dry" tasks so each sample can only choose one
+    for job in batch.jobs:
+        for task in job.tasks:
+            if "dry" in task.name:
+                batch.model.AddExactlyOne(task.bool_vars)
 
-    #Constrain the capacity of the dryers
-    #  each optional interval has a demand of 1
-    #  each reactor has a capacity of 4
-    for optional_intervals_per_machine in optional_intervals:
-        model.AddCumulative(optional_intervals_per_machine, 
-                            [1] * len(optional_intervals_per_machine), 
-                            4 
+    #Impose the capacity contraint on for the reactors
+    for i in range(batch.num_reactors):
+        m = i + 1 #Convert index to resouce ID
+        interval_list = find_intervals_using_resouce(batch, m)
+        batch.model.AddCumulative(interval_list,
+                                [1]*len(interval_list),
+                                4,
+                                )
+
+    #No Overlap between reacting and drying on the same machine
+    for i in range(batch.num_reactors):
+        m = i + 1 #Convert index to resouce ID
+        react_list = find_intervals_resource_task(batch, "react", m)
+        dry_list = find_intervals_resource_task(batch, "dry", m)
+
+        for exclusive_intervals in itertools.product(react_list, dry_list):
+            batch.model.add_no_overlap(list(exclusive_intervals))
+
+    #Impose capacity constraint for centrifuge tasks
+    cent_intervals = find_intervals_of_task(batch, "centrifuge")
+    batch.model.AddCumulative(cent_intervals,
+                            [1]*len(cent_intervals),
+                            6,
                             )
-    
-    #No Overlap between drying and reacting on the same machine
-    for i, optional_intervals_per_machine in enumerate(optional_intervals):
-        m = i+1 #Convert index to Machine ID
-        react_inds = dict_searcher(resource_dict, m)
-        react_tasks = dict_reporter(interval_dict, react_inds)
 
-        for task in react_tasks:
-            for optional_interval in optional_intervals_per_machine:
-                exclusive_intervals = [optional_interval, task.interval] 
-                model.add_no_overlap(exclusive_intervals)
-
-    #Find all the tasks that use each reactor, and impose capacity constraint
-    for i in range(num_reactors):
-        machine = i+1 #Convert index to Machine ID
-        dict_inds = dict_searcher(resource_dict, machine)
-        reactor_tasks = dict_reporter(interval_dict, dict_inds)
-        reactor_intervals = [task.interval for task in reactor_tasks]
-        demands = np.ones(len(reactor_tasks), dtype = int)
-
-        model.AddCumulative(reactor_intervals, demands, 4)
-
-    #Find all the tasks that use centrifuge, and impose capacity constraint
-    dict_inds = dict_searcher(resource_dict, num_reactors + 1)
-    centrifuge_tasks = dict_reporter(interval_dict, dict_inds)
-    centrifuge_intervals = [task.interval for task in centrifuge_tasks]
-    demands = np.ones(len(centrifuge_tasks), dtype = int)
-
-    model.AddCumulative(centrifuge_intervals, demands, 6)
-
-    #If centrifuge tasks overlap, then the start times should be equal, otherwise they should not overlap
-    for i, cent_a in enumerate(centrifuge_tasks):
-        for j, cent_b in enumerate(centrifuge_tasks):
+    #If the centrifuge tasks overlap, then the start times should be equal, otherwise they should not overlap
+    cent_tasks = find_tasks_of_type(batch, "centrifuge")
+    for i, cent_a in enumerate(cent_tasks):
+        for j, cent_b in enumerate(cent_tasks):
             if i < j:
                 
-                b = model.NewBoolVar(f"centrifuge_overlap_{cent_a.interval.name}_{cent_b.interval.name}")
-                b_order = model.NewBoolVar(f"centrifuge_order_{cent_a.interval.name}_{cent_b.interval.name}")
+                b = batch.model.NewBoolVar(f"centrifuge_overlap_{cent_a.name}_{cent_b.name}")
+                b_order = batch.model.NewBoolVar(f"centrifuge_order_{cent_a.name}_{cent_b.name}")
         
-                model.Add(cent_a.start == cent_b.start).OnlyEnforceIf(b)
+                batch.model.Add(cent_a.start_var == cent_b.start_var).OnlyEnforceIf(b)
             
-                model.Add(cent_a.end <= cent_b.start).OnlyEnforceIf(~b, b_order)
-                model.Add(cent_b.end <= cent_a.start).OnlyEnforceIf(~b, ~b_order)
+                batch.model.Add(cent_a.end_var <= cent_b.start_var).OnlyEnforceIf(~b, b_order)
+                batch.model.Add(cent_b.end_var <= cent_a.start_var).OnlyEnforceIf(~b, ~b_order)
 
-    #Find all the tasks that use sonicator, and impose capacity constraint
-    dict_inds = dict_searcher(resource_dict, num_reactors + 2)
-    sonicator_tasks = dict_reporter(interval_dict, dict_inds)
-    sonicator_intervals = [task.interval for task in sonicator_tasks]
-    demands = np.ones(len(sonicator_tasks), dtype = int)
-
-    model.AddCumulative(sonicator_intervals, demands, 3) # Sonicator capacity
-
+    #Impose capacity constraint for sonicate tasks
+    sonicate_intervals = find_intervals_of_task(batch, "sonicate")
+    batch.model.AddCumulative(sonicate_intervals,
+                            [1]*len(sonicate_intervals),
+                            3,
+                            )
 
     # Add_fluids.end should be within 42 Ds of react.start for each sample
-    for i, sample in enumerate(interval_dict["Sample Name"]):
-        add_fluids_task = dict_indexer(interval_dict, sample, "add_fluids")
-        react_task = dict_indexer(interval_dict, sample, "react")
+    for job in batch.jobs:
+        add_fluids = None
+        react = None
+        for task in job.tasks:
+            if "add_fluids" in task.name:
+                add_fluids = task.end_var
+            elif "react" in task.name:
+                react = task.start_var
+        if (add_fluids is not None) and (react is not None):
+            batch.model.add(add_fluids + 42 > react)
 
-        model.add(add_fluids_task.end + 42 > react_task.start)
+    for i in range(batch.num_reactors):
+        m = i + 1 #Convert index to resource ID
+        react_tasks = find_tasks_resource_type(batch, "react", m)
+        temperatures = []
+        durations = []
+        for task in react_tasks:
+            temperatures.append(task.reactor_temp)
+            durations.append(task.duration)
+        unique_temps = np.unique(temperatures)
+        longest_task_duration_at_each_temp = []
+        for temp in unique_temps:
+            indexes = np.where(temperatures == temp)[0]
+            task_at_temp = np.array(react_tasks)[indexes]
 
-    #Find all the reactions that happen at the same temperature and use the same reactor.
-    # These must all END at the same time
-    #Find all the reactions that use the same reactor but at different temperatures
-    # the lower temperature should start first
-    for reactor in range(num_reactors):
-        sub_df = unit_ops_df[unit_ops_df["Reactor"] == reactor]
-        temperatures = np.unique(sub_df["Reactor Temperature (C)"].to_numpy())
-        longest_sample_duration_at_each_temp = []
-        for temp in temperatures:
-            samples_at_that_temp = sub_df[sub_df["Reactor Temperature (C)"] == temp]["Sample Name"].to_numpy()
-            for i, sample_i in enumerate(samples_at_that_temp):
-                for j, sample_j in enumerate(samples_at_that_temp):
+            for i, task_i in enumerate(task_at_temp):
+                for j, task_j in enumerate(task_at_temp):
                     if i < j:
-                        react_task_i = dict_indexer(interval_dict, sample_i, "react")
-                        react_task_j = dict_indexer(interval_dict, sample_j, "react")
+                        batch.model.add(task_i.end_var == task_j.end_var)
+            
+            durations_at_temp = np.array(durations)[indexes]
+            longest_task_duration_at_each_temp.append(task_at_temp[np.argmax(durations_at_temp)])
 
-                        model.add(react_task_i.end == react_task_j.end)
-        
-            #Get the piece of the dataframe that is at that temperature
-            sub_sub_df = sub_df[sub_df["Reactor Temperature (C)"] == temp]
-            #Sort that piece of dataframe by the reactor duration
-            sub_sub_df = sub_sub_df.sort_values("Duration (Ds)")
-            #Add the sample with the longest duration to the list
-            longest_sample_duration_at_each_temp.append(sub_sub_df["Sample Name"].to_numpy()[-1])
+        if len(longest_task_duration_at_each_temp) > 1:
+            for i, task_i in enumerate(longest_task_duration_at_each_temp[:-1]):
+                task_j = longest_task_duration_at_each_temp[i+1]
 
-        if len(longest_sample_duration_at_each_temp) > 1:
-            for i, sample_i in enumerate(longest_sample_duration_at_each_temp[:-1]):
-                sample_j = longest_sample_duration_at_each_temp[i+1]
-
-                #Find low temperature react task
-                react_task_i = dict_indexer(interval_dict, sample_i, "react")
-                #Find high temperature react task
-                react_task_j = dict_indexer(interval_dict, sample_j, "react")
-
-                #Low temperature react task must end before the high temperature react task can start
-                model.add(react_task_i.end <= react_task_j.start)
+                batch.model.add(task_i.end_var <= task_j.start_var)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Creating objective for the job shop problem
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # Makespan objective.
-    obj_var = model.new_int_var(0, horizon, "makespan")
+    obj_var = batch.model.new_int_var(0, horizon, "makespan")
 
-    #Gather the collections of tasks for every sample
-    all_tasks = []
-    for sample in interval_dict["Sample Name"]:
-        all_tasks.extend(dict_row_slicer(interval_dict, sample))
-
-    #Unpack all the tasks into a flat list of tasks
-    all_tasks_list = []
-    for task in all_tasks:
-        if type(task) != list:
-            all_tasks_list.append(task)
-        else:
-            for alt_task in task:
-                all_tasks_list.append(alt_task)
-    all_tasks_list = [item for item in all_tasks_list if type(item) != float]
-    
+    #Gather all the end times
     all_end_list = []
-    for task in all_tasks_list:
-        if type(task) == task_type:
-            all_end_list.append(task.end)
+    for job in batch.jobs:
+        for task in job.tasks:
+            if "dry" not in task.name:
+                all_end_list.append(task.end_var)
+            elif "dry" in task.name:
+                for option_end in task.end_var:
+                    all_end_list.append(option_end)
 
     #Add the max_equality constraint
-    model.add_max_equality(
-        obj_var,
-        all_end_list,
-    )
-    model.minimize(obj_var)
+    batch.model.add_max_equality(obj_var, all_end_list)
+    batch.model.minimize(obj_var)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Solve the job shop problem
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+
     solver = cp_model.CpSolver()
     solver.parameters.randomize_search = True
 
@@ -848,7 +701,7 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, op_order, plot = False):
     solver.log_callback = print  # (str)->None
     # If using a custom log function, you can disable logging to stdout
     solver.parameters.log_to_stdout = False
-    status = solver.solve(model)
+    status = solver.solve(batch.model)
 
     print("solver status", solver.status_name(status))
 
@@ -858,82 +711,29 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, op_order, plot = False):
 
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
 
-        all_start_list = []
-
-        for task in all_tasks_list:
-            if type(task) == task_type:
-                all_start_list.append(task.start)
-
-        start_times = solver.values(all_start_list)
-
-        end_times = solver.values(all_end_list)
-
-        dry_machine_assignments = solver.values(dryer_assignments)
-        dry_machine_assignments = dry_machine_assignments.to_list()
-
-        #Find the machine index for the reactors assigned for each drying step
-        ## Note that this is the global machine index, not the reactor index!
-        assigned_reactors = []
-        for sample in resource_dict["Sample Name"]:
-            truth_list = [sample in b.name for b in dryer_assignments]
-            indexs = np.where(np.array(truth_list) == True)[0]
-            bools_for_sample = [dry_machine_assignments[i] for i in indexs]
-            assigned_reactor = np.where(np.array(bools_for_sample) == 1)[0] + 1
-            assigned_reactors.append(assigned_reactor[0])
-
-        assigned_reactors = np.array(assigned_reactors)
-
-        solved_dry_intervals = []
-        for i, (r, sample) in enumerate(zip(assigned_reactors, resource_dict["Sample Name"])):
-            solved_dry_intervals.append(optional_intervals[r-1][i]) #Subtract 1 to convert from Machine ID to reactor index
-        
-        drying_start_times = solver.values([interval.start_expr() for interval in solved_dry_intervals])
-        drying_end_times = solver.values([interval.end_expr() for interval in solved_dry_intervals])
-
         unit_ops_df["Start Time (Ds)"] = "?"
         unit_ops_df["End Time (Ds)"] = "?"
 
-        #Add the start times and end times to the unit ops df
-        # Except for drying tasks
-        for sample in interval_dict["Sample Name"]:
-            truth_list = [sample in name.name for name in start_times.index.values]
-            times_indexes = np.argwhere(truth_list)
-            
-            for op in op_order:
-                if op != "dry":
-                    op_truth_list = [op in name.name for name in start_times.index.values]
-            
-                    truth_test = np.array(op_truth_list) & np.array(truth_list)
-                    time_index = np.argwhere(truth_test)
-                    if len(time_index) > 0:
-                        time_index = time_index[0][0]
-                        unit_op_table_index = unit_ops_df[(unit_ops_df["Sample Name"] == sample) &
-                                                        (unit_ops_df["UnitOP"] == op)].index.values[0]
-                        unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = start_times.values[time_index]
-                        unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = end_times.values[time_index] 
+        for job in batch.jobs:
+            sample_name = job.name
+            for task in job.tasks:
+                task_name = task.name
+                unit_op_table_index = unit_ops_df[(unit_ops_df["Sample Name"] == sample_name) &
+                                                  (unit_ops_df["UnitOP"] == task_name)].index.values[0]
 
-        #Add the drying tasks start times and end times to the unit_ops_df
-        for i, sample in enumerate(interval_dict["Sample Name"]):
-            truth_list = [sample in name.name for name in drying_start_times.index.values]
-            times_indexes = np.argwhere(truth_list)
-            
-            op = "dry"
-            op_truth_list = [op in name.name for name in drying_start_times.index.values]
+                if "dry" not in task_name:
+                    unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = solver.value(task.start_var)
+                    unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = solver.value(task.end_var)
 
-            truth_test = np.array(op_truth_list) & np.array(truth_list)
-            time_index = np.argwhere(truth_test)
-            if len(time_index) > 0:
-                time_index = time_index[0][0]
-                unit_op_table_index = unit_ops_df[(unit_ops_df["Sample Name"] == sample) &
-                                                (unit_ops_df["UnitOP"] == op)].index.values[0]
-                unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = drying_start_times.values[time_index]
-                unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = drying_end_times.values[time_index]     
-                unit_ops_df.loc[unit_op_table_index, "Reactor"] = assigned_reactors[i] -1 # Subtract 1 to convert between Machine ID to reactor reactor index  
+                elif "dry" in task_name:
+                    bool_values = solver.values(task.bool_vars)
+                    index = np.where(bool_values)[0][0]
 
+                    unit_ops_df.loc[unit_op_table_index, "Reactor"] = index # index is reactor (not resource) index
+                    unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = solver.values(task.start_var)[index]
+                    unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = solver.values(task.end_var)[index]
+                    
         unit_ops_df = add_unit_ops_resource_collumn(unit_ops_df)
-
-
-        unit_ops_df["Step"] = unit_ops_df.index.values
 
         if plot == True:
 
@@ -950,6 +750,7 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, op_order, plot = False):
         
     else:
         raise(f"Status of solver is {status}")
+
 
 def interleave_reactor_preheating(unit_ops_df, heating_rate):
   """

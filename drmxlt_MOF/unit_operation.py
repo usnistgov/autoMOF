@@ -1359,7 +1359,9 @@ async def Global_Centrifuge(op_df_index, samples, c, system_db, experiment, op_n
 
   system_db = await machine_key_release(system_db, "Centrifuge")
 
+  # Iterate through each sample ID in the list of samples
   for Sample_ID in samples:
+    # Update the status of the sample in the experiment to "Spun" for the specified unit operation
     experiment = update_unit_op_sample_status(Sample_ID, experiment, op_name, "Spun")
 
   write_db_files(system_db, experiment)
