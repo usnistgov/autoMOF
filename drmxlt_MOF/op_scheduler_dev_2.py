@@ -357,6 +357,7 @@ def add_unit_ops_resource_collumn(unit_ops_df):
           unit_ops_df.loc[idx,"Resource"] = "VialRack"
       if row["UnitOP"] == "dry":
           unit_ops_df.loc[idx,"Resource"] = f"Reactor {row["Reactor"]}"
+    return unit_ops_df
 
 
 class Task:
@@ -719,8 +720,7 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
             for task in job.tasks:
                 task_name = task.name
                 unit_op_table_index = unit_ops_df[(unit_ops_df["Sample Name"] == sample_name) &
-                                                  (unit_ops_df["UnitOP"] == task_name)].index.values[0]
-
+                                                (unit_ops_df["UnitOP"] == task_name)].index.values[0]
                 if "dry" not in task_name:
                     unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = solver.value(task.start_var)
                     unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = solver.value(task.end_var)
@@ -730,10 +730,12 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
                     index = np.where(bool_values)[0][0]
 
                     unit_ops_df.loc[unit_op_table_index, "Reactor"] = index # index is reactor (not resource) index
-                    unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = solver.values(task.start_var)[index]
-                    unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = solver.values(task.end_var)[index]
+                    unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = solver.value(task.start_var[index])
+                    unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = solver.value(task.end_var[index])
+
                     
         unit_ops_df = add_unit_ops_resource_collumn(unit_ops_df)
+        unit_ops_df["Step"] = unit_ops_df.index.values
 
         if plot == True:
 

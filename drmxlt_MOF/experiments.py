@@ -7,10 +7,10 @@ from drmxlt_MOF.op_scheduler import create_unit_ops_df, assign_reactors, define_
 class Experiment():
     """"Base class for all experiments"""
     
-    def __init__(self):
+    def __init__(self, initial_samples = 16, batch_size = 4):
         #number of initial samples
-        self.initial_samples : int = 16
-        self.batch_size : int = 4
+        self.initial_samples : int = initial_samples
+        self.batch_size : int = batch_size
         #sample code length in number of characters
         self.code_length : int = 4 
 
@@ -86,8 +86,8 @@ class Experiment():
 class Ternary_colordemo(Experiment):
     """Class for exploring the ternary compositions for a colormap"""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, initial_samples = 16, batch_size = 4):
+        super().__init__(initial_samples=initial_samples, batch_size=batch_size)
         self.initialize_target_compositions()
         self.define_experiment_conditions()
         self.initalize_fluid_db()
@@ -297,8 +297,8 @@ class Ternary_colordemo(Experiment):
 class Cu_BTC(Experiment):
 
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, initial_samples = 16, batch_size = 4):
+        super().__init__(initial_samples=initial_samples, batch_size=batch_size)
         self.initialize_target_compositions()
         self.initialize_fluid_db()
         self.define_experiment_conditions()
