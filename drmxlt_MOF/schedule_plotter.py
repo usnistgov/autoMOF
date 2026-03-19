@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 import plotly.express as px
+from plotly.subplots import make_subplots
 
 
 def plot_gantt_chart(unit_ops_df, write_to_file = False, write_directory = None, filename_suffix = None):
@@ -43,39 +44,70 @@ def plot_gantt_chart(unit_ops_df, write_to_file = False, write_directory = None,
              base="Start Time (Ds)", 
              y="Step", 
              orientation="h", 
-             color="Step")
+             color="Step",
+             color_continuous_scale=px.colors.sequential.Viridis,
+             template = "simple_white",
+             width = 1200,
+             height = 800)
     
     # Update layout for better visualization
-    fig1.update_layout(title="Unit OP Timeline", xaxis_title="Time (Ds)", yaxis_title="Unit OP")
+    fig1.update_layout(title="Unit OP Timeline", xaxis_title="Time (Ds)", yaxis_title="Unit OP",
+                       xaxis=dict(tickformat=".3r"))
 
 
     #Gantt Chart Per Resource
-    fig2 = px.bar(unit_ops_df.fillna("None"), 
+    n_colors = len(unit_ops_df["Sample Name"].unique())
+    colors = px.colors.sample_colorscale("viridis", [n/(n_colors -1) for n in range(n_colors)])
+    fig2 = px.bar(unit_ops_df.replace(np.nan, "None"), # unit_ops_df.fillna("None") 
              x="Duration (Ds)", 
              base="Start Time (Ds)", 
              y="Resource", 
              orientation="h", 
              barmode="group",
-             color="Sample Name")
+             color="Sample Name",
+             color_discrete_sequence=colors,
+             template = "simple_white",
+             width = 1200,
+             height = 800)
     
     # Update layout for better visualization
-    fig2.update_layout(title="Resource Timeline", xaxis_title="Time (Ds)", yaxis_title="Resource")
+    fig2.update_layout(title="Resource Timeline", xaxis_title="Time (Ds)", yaxis_title="Resource",
+                       xaxis=dict(tickformat=".3r"),
+                       font=dict(size=24),
+                       legend_font_size=24)
+    fig2.update_xaxes(tickfont=dict(size=24))
+    fig2.update_xaxes(title_font_size=28)
+    fig2.update_yaxes(tickfont=dict(size=24))
+    fig2.update_yaxes(title_font_size=28)
 
     #Gantt Chart Per Sample
-    fig3 = px.bar(unit_ops_df.fillna("None"), 
+    n_colors = len(unit_ops_df["UnitOP"].unique())
+    colors = px.colors.sample_colorscale("plasma", [n/(n_colors -1) for n in range(n_colors)])
+    fig3 = px.bar(unit_ops_df.replace(np.nan, "None"), # unit_ops_df.fillna("None"), 
                 x="Duration (Ds)", 
                 base="Start Time (Ds)", 
                 y="Sample Name", 
                 orientation="h", 
-                color="UnitOP")
+                color="UnitOP",
+                color_discrete_sequence=colors,
+                template = "simple_white",
+                width = 1200,
+                height = 800)
 
     # Update layout for better visualization
-    fig3.update_layout(title="Sample Timeline", xaxis_title="Time (Ds)", yaxis_title="Sample Name")
+    fig3.update_layout(title="Sample Timeline", xaxis_title="Time (Ds)", yaxis_title="Sample Name",
+                       xaxis=dict(tickformat=".3r"),
+                       font=dict(size=24),
+                       legend_font_size=24)
+    fig3.update_xaxes(tickfont=dict(size=24))
+    fig3.update_xaxes(title_font_size=28)
+    fig3.update_yaxes(tickfont=dict(size=24))
+    fig3.update_yaxes(title_font_size=28)
 
 
     if write_to_file == True:
-        fig1.write_image(f"{write_directory}/UnitOP_schedule_{filename_suffix}.png")
-        fig2.write_image(f"{write_directory}/Resource_schedule_{filename_suffix}.png")
-        fig3.write_image(f"{write_directory}/Sample_schedule_schedule_{filename_suffix}.png")
+        fig1.write_image(f"{write_directory}/UnitOP_schedule_{filename_suffix}.pdf")
+        fig2.write_image(f"{write_directory}/Resource_schedule_{filename_suffix}.pdf")
+        fig3.write_image(f"{write_directory}/Sample_schedule_schedule_{filename_suffix}.pdf")
 
-    return fig1, fig2, fig3
+    return fig1, fig2, fig3 
