@@ -327,8 +327,6 @@ def add_unit_ops_resource_collumn(unit_ops_df):
     
     Parameters
     ----------
-    Parameters
-    ----------
     unit_ops_df : pd.DataFrame
         DataFrame that keeps track of each step of each experiment
 
@@ -361,6 +359,37 @@ def add_unit_ops_resource_collumn(unit_ops_df):
 
 
 class Task:
+    """
+    Class representing a task in the job shop scheduling problem.
+
+    Attributes
+    ----------
+    task_id : int 
+        Unique identifier for the task.
+    name : str
+         Name of the task.
+    duration : float
+        Duration of the task in Ds.
+    reactor : int
+        Reactor ID assigned to the task.
+    reactor_temp : float
+        Temperature of the reactor for the task.
+    resource : int or list
+        Resource ID(s) assigned to the task.
+    start_var : cp_model.IntVar or list
+        Start time variable(s) for the task.
+    end_var : cp_model.IntVar or list
+        End time variable(s) for the task.
+    interval_var : cp_model.IntervalVar or list
+        Interval variable(s) for the task.
+
+    Methods
+    -------
+    assign_resource(num_reactors)
+        Assigns the machine ID for each resource based on the type of task.
+    create_interval_var(model, horizon)
+        Creates all the start, end, and interval variables for the constraint satisfaction model.
+    """
     def __init__(self, task_id, name, duration, reactor, reactor_temp):
         self.task_id = task_id
         self.name = name
@@ -424,15 +453,54 @@ class Task:
             self.interval_var = interval_vars
 
 class Job:
+    """
+    Class representing a job (series of tasks) in the job shop scheduling problem.
+
+    Attributes
+    ----------
+    job_id : int
+        Unique identifier for the job.
+    name : str
+        Name of the job, e.g. Sample name
+    tasks : list
+        List of Task objects belonging to the job.
+
+    Methods
+    -------
+    add_task(task)
+        Appends the task to the list of tasks
+    """
     def __init__(self, job_id, name):
         self.job_id = job_id
         self.name = name
         self.tasks = []
 
     def add_task(self, task):
+        """
+        Adds a task to the job.
+
+        Parameters
+        ----------
+        task : Task
+            Task object to be added.
+        """
         self.tasks.append(task)
 
 class Batch:
+    """
+    Class representing a batch of jobs in the job shop scheduling problem.
+
+    Attributes
+    ----------
+    num_reactors :
+        Number of reactors available.
+    horizon : int
+        Horizon for the scheduling problem - i.e. longest possible end time
+    jobs : list
+        List of Job objects in the batch.
+    model : cp_model.CpModel
+        Constraint programming model for the batch.
+    """
     def __init__(self, num_reactors, horizon):
         self.num_reactors = num_reactors
         self.horizon = horizon
@@ -440,9 +508,32 @@ class Batch:
         self.model = cp_model.CpModel()
 
     def add_job(self, job):
+        """
+        Adds a job to the batch.
+
+        Parameters
+        ----------
+        job : Job
+            Job object to be added.
+        """
         self.jobs.append(job)
 
 def find_tasks_using_resource(batch, resource):
+    """
+    Finds tasks in the batch that use the specified resource.
+
+    Parameters
+    ----------
+    batch : Batch
+        Batch object containing jobs and tasks.
+    resource : int
+        Resource ID to search for.
+
+    Returns
+    -------
+    tasks : list
+        List of Task objects using the specified resource.
+    """
     tasks = []
     for job in batch.jobs:
         for task in job.tasks:
@@ -456,6 +547,21 @@ def find_tasks_using_resource(batch, resource):
     return tasks
 
 def find_tasks_of_type(batch, task_name):
+    """
+    Finds tasks in the batch that match the specified task name.
+
+    Parameters
+    ----------
+    batch : Batch
+        Batch object containing jobs and tasks.
+    task_name : str
+        Task name to search for.
+
+    Returns
+    -------
+    tasks : list
+        List of Task objects matching the specified task name.
+    """
     tasks = []
     for job in batch.jobs:
         for task in job.tasks:
@@ -464,6 +570,23 @@ def find_tasks_of_type(batch, task_name):
     return tasks
 
 def find_tasks_resource_type(batch, task_name, resource):
+    """
+    Finds tasks in the batch that match the specified task name AND resource.
+
+    Parameters
+    ----------
+    batch : Batch
+        Batch object containing jobs and tasks.
+    task_name : str
+        Task name to search for.
+    resource : int
+        Resource ID to search for.
+
+    Returns
+    -------
+    tasks : list
+        List of Task objects matching the specified task name AND resource.
+    """
     tasks = []
     for job in batch.jobs:
         for task in job.tasks:
@@ -472,7 +595,22 @@ def find_tasks_resource_type(batch, task_name, resource):
                     tasks.append(task)
     return tasks
 
-def find_intervals_using_resouce(batch, resource):
+def find_intervals_using_resource(batch, resource):
+    """
+    Finds interval variables in the batch that use the specified resource.
+
+    Parameters
+    ----------
+    batch : Batch
+        Batch object containing jobs and tasks.
+    resource : int
+        Resource ID to search for.
+
+    Returns
+    -------
+    intervals : list
+        List of interval variables using the specified resource.
+    """
     intervals = []
     for job in batch.jobs:
         for task in job.tasks:
@@ -487,6 +625,21 @@ def find_intervals_using_resouce(batch, resource):
     return intervals
 
 def find_intervals_of_task(batch, task_name):
+    """
+    Finds interval variables in the batch that correspond to tasks with the specified name.
+
+    Parameters
+    ----------
+    batch : Batch
+        Batch object containing jobs and tasks.
+    task_name : str
+        Task name to search for.
+
+    Returns
+    -------
+    intervals : list
+        List of interval variables corresponding to tasks with the specified name.
+    """
     intervals = []
     for job in batch.jobs:
         for task in job.tasks:
@@ -495,6 +648,23 @@ def find_intervals_of_task(batch, task_name):
     return intervals
 
 def find_intervals_resource_task(batch, task_name, resource):
+    """
+    Finds interval variables in the batch that correspond to tasks with the specified name and resource.
+
+    Parameters
+    ----------
+    batch : Batch
+        Batch object containing jobs and tasks.
+    task_name : str
+        Task name to search for.
+    resource : int
+        Resource ID to search for.
+
+    Returns
+    -------
+    intervals : list
+        List of interval variables corresponding to tasks with the specified name and resource.
+    """
     intervals = []
     for job in batch.jobs:
         for task in job.tasks:
@@ -560,7 +730,7 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     #Find all the tasks using the Arm&Clamp, and impose no_overlap constraint
-    arm_intervals = find_intervals_using_resouce(batch, 0)
+    arm_intervals = find_intervals_using_resource(batch, 0)
     batch.model.add_no_overlap(arm_intervals)
 
     #For each sample the ops must happen in order
@@ -583,7 +753,7 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
     #Impose the capacity contraint on for the reactors
     for i in range(batch.num_reactors):
         m = i + 1 #Convert index to resouce ID
-        interval_list = find_intervals_using_resouce(batch, m)
+        interval_list = find_intervals_using_resource(batch, m)
         batch.model.AddCumulative(interval_list,
                                 [1]*len(interval_list),
                                 4,
