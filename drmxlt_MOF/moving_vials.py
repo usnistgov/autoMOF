@@ -11,6 +11,21 @@ from Locator import *
 
 #Initial Assignment of sample to a vial
 def assign_sample_to_vial(Sample_ID, sample_db, system_db):
+  """
+  Function for the initial assignment of a sample to an empty vial.
+  Checks the sample_db for the current address: [0, 0, _] is a new sample
+  Checkds the vial racks for any vails that are unassigned
+
+  Parameters
+  ----------
+  Sample_ID : str
+    Name of the sample
+  sample_db : dict (-like)
+      Database that tracks all the attributes of all the samples
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+
+  """
   current_address = sample_db[Sample_ID]["Address"]
 
   #If the current address starts [0, 0, _] then it's a new sample
@@ -49,6 +64,22 @@ def assign_sample_to_vial(Sample_ID, sample_db, system_db):
 
 
 def find_open_reactor_addresses(system_db, reactor):
+  """
+  Function to find available, empty, position in a reactor.
+  Returns the first available position discovered.
+  
+  Parameters
+  ----------
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+  reactor : int
+      Index of the reactor to check in the system_db
+
+  Returns
+  -------
+  address : nd:array
+    Address of the available position
+  """
   reactor_df = system_db["reactor"][reactor]
 
   position_keys = [item for item in list(reactor_df.keys()) if isinstance(item, int)]
@@ -57,14 +88,27 @@ def find_open_reactor_addresses(system_db, reactor):
     occ = reactor_df[position]["Assignment"]
 
     if occ == "Empty":
-      return position
+      address = np.array([4, reactor, position])
+      return address
     
 
-
-
-
-
 def find_open_vial_rack_addresses(system_db):
+  """
+  Function to find available, empty, positions in in the vial racks.
+  Returns the first available position discovered.
+  
+  Parameters
+  ----------
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+
+  Returns
+  -------
+  free_addresses[0] : nd.array
+      First address of the available positions
+  """
+    
+
   loaded_rack_left = system_db["loaded_rack_left"]
   loaded_left_mask = np.array(loaded_rack_left == 0)
   left_rack_assignments = system_db["left_rack_assignments"]
@@ -114,16 +158,74 @@ def find_open_vial_rack_addresses(system_db):
 
   return free_addresses[0]
 
+def find_open_centrifuge_position(system_db):
+    """
+    Function to find the next available centrifuge position.
+    Uses the centrifuge loading order from the system_db.
+    Returns the address of the next available position in the loading order.
+    
+    The loading order attempts to balance the centrifuge, minmizing the need for balast.
+    
+    Parameters
+    ----------
+    system_db : dict (-like)
+        Database that tracks all the status of all components of the system
+
+    Returns
+    -------
+    address : nd.array
+        Address of the next available position
+    """
+    centrifuge = system_db["centrifuge"]
+
+    loading_order = centrifuge["Loading Order"]
+
+    for position in loading_order:
+        assignment = centrifuge[position]["Assignment"]
+
+        if assignment == "Empty":
+            address = np.array([6,0,position])
+            return address
+    raise Exception("Centrifuge fully loaded")
 
 def find_sample_in_gripper(sample_db):
+  """
+  Function to find whatever sample is in the gripper
+
+  Parameters
+  ----------
+  sample_db : dict (-like)
+      Database that tracks all the attributes of all the samples
+  
+  Returns
+  -------
+  key : str
+      Name of the sample in the gripper
+  """
   for key in sample_db.keys():
     address = sample_db[key]["Address"]
     if address[0] == 2: #sample is in gripper
       return key #return sample name
 
   top_level_addresses = np.array(top_level_addresses)
+
+
 # Status checking
 def check_samples_in_gripper(sample_db):
+  """
+  Function to check sample_db if there are any samples in the gripper
+
+  Parameters
+  ----------
+  sample_db : dict (-like)
+      Database that tracks all the attributes of all the samples
+  
+  Returns
+  -------
+  any_in_gripper : bool
+      Bool for if there are samples in the gripper
+  """
+
   top_level_addresses = []
   for key in sample_db.keys():
     address = sample_db[key]["Address"]
@@ -135,10 +237,38 @@ def check_samples_in_gripper(sample_db):
   return any_in_gripper
 
 def system_using_gripper(system_db):
+  """
+  Function to check system_db if gripper is occupied
+
+  Parameters
+  ----------
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+  
+  Returns
+  -------
+  gripper_occupied : bool
+      Bool for if the gripper is occupied
+  """
   gripper_occupied = system_db["gripper_occupied"]
   return gripper_occupied
 
 def full_gripper_available_check(sample_db, system_db):
+  """
+  Function to check both the sample_db and system_db to see if anything is occupying the gripper
+
+  Parameters
+  ----------
+  sample_db : dict (-like)
+      Database that tracks all the attributes of all the samples
+  system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+  
+  Returns
+  -------
+  gripper_avialable : bool
+      Bool for if the gripper is available by both the sample_db and system_db checks.
+  """
   any_in_gripper = check_samples_in_gripper(sample_db)
   gripper_occupied = system_using_gripper(system_db)
 
@@ -150,6 +280,23 @@ def full_gripper_available_check(sample_db, system_db):
   return gripper_available
 
 def Violent_Action_Precheck(c):
+  """
+  Function to check if there are any activities that might be causing the robotic platform to vibrate.
+  This can be important to check before attempting to read the scale.
+
+  Checks if the sonicator is running.
+  Checks if the centrifuge is running.
+  
+  Parameters
+  ----------
+  c : NorthC9
+    NorthC9 object for instrument control
+  
+  Returns
+  -------
+  violent_action : bool
+    Bool for if there are any actions that might be causing a vibration.
+  """
 #   #Is the sonicator on?
 #   sonicator_status = c.sonicator
 # 
@@ -165,6 +312,31 @@ def Violent_Action_Precheck(c):
 
 #Pre Move checking to make sure the move is possible at this time:
 def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_temperature_threshold = 1000.0):
+  """
+  Function to check if the movement is possible at this time.
+  Checks conditions at both the source and destination 
+  
+  Parameters
+  ----------
+  Sample_ID : str
+    Name of the sample
+  destination : nd:array
+    Address of the position to move the sample to
+  sample_db : dict (-like)
+    Database that tracks all the attributes of all the samples
+  system_db : dict (-like)
+    Database that tracks all the status of all components of the system
+  c : NorthC9
+    NorthC9 object for instrument control
+  hot_load_temperature_threshold : float
+    Limit on how hot the reactor can be when loading a sample. 
+
+  Returns
+  -------
+  True
+    If all the checks pass
+  
+  """
   source = sample_db[Sample_ID]["Address"]
 
   if all(source == destination): #If the sample is already there, do nothing
@@ -219,6 +391,10 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
 
     if reactor_ready == False:
       raise Exception("reactor is not ready")
+    
+  if source[0] == 6: #If the source is the centrifuge
+    #Check if the centrifuge is spinning
+    ready = c.centrifuge.rpm == 0
 
   #Check destination readiness
   if destination[0] == 1: #If destination is in the vial rack
@@ -304,12 +480,32 @@ def Premove_Check_(Sample_ID, destination, sample_db, system_db, c, hot_load_tem
 
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
+  
+  if destination[0] == 6: #If the destination is the centrifuge
+    #Check if the centrifuge is spinning
+    ready = c.centrifuge.rpm == 0
 
   #TODO: push system db to Cordra
   return True
 
 
 def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
+  """
+  Function to move a sample to a new destination 
+  
+  Parameters
+  ----------
+  Sample_ID : str
+    Name of the sample
+  destination : nd:array
+    Address of the position to move the sample to
+  sample_db : dict (-like)
+    Database that tracks all the attributes of all the samples
+  system_db : dict (-like)
+    Database that tracks all the status of all components of the system
+  c : NorthC9
+    NorthC9 object for instrument control 
+  """
   source = sample_db[Sample_ID]["Address"]
 
   #### Source #####
@@ -421,6 +617,15 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
 
   if source[0] == 5: #If source is the syringe pumps
     raise Exception("Syringe pumps not a valid source location for a sample")
+  
+  if source[0] == 6: #If the source is the centrifuge
+      c.move_centrifuge(source[2]) #Move the centrifuge to loading position for this index
+      c.goto_safe(centrifuge_load_pos)
+      c.close_gripper()
+      system_db['gripper_status'] = "Closed"
+      system_db["gripper_occupied"] = True
+      sample_db[Sample_ID]["Address"] = np.array([2, 0, 0]) #tell sample_db that it's in the gripper
+      system_db["centrifuge"][source[2]]["Assignment"] = "Empty" #Tell the system_db that this location is now empty
   
   #TODO: push sample db to Cordra
   #TODO: push system db to Cordra
@@ -537,19 +742,40 @@ def Move_Sample(Sample_ID, destination, sample_db, system_db, c):
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
   
+  if destination[0] == 6: #If the source is the centrifuge
+      c.move_centrifuge(destination[2]) #Move the centrifuge to loading position for this index
+      c.goto_safe(centrifuge_load_pos)
+      c.open_gripper()
+      system_db['gripper_status'] = "Open"
+      system_db["gripper_occupied"] = False
+      sample_db[Sample_ID]["Address"] = destination #tell sample_db that it's in the centrifuge
+      system_db["centrifuge"][source[2]]["Assignment"] = Sample_ID #Tell the system_db that this location is now has the sample
+  
   #TODO: push sample db to Cordra
   #TODO: push system db to Cordra
 
 
 def force_Move_Vial(source, destination, c):
-  """WARNING: untracked vial movement
+  """
+  Function to move a vial without performing any checks
+  
+  ****WARNING: untracked vial movement****
   This function will attempt to move a vial from any 
   valid source location to any valid destination location
   WITHOUT checking the system or sample databases
   WITHOUT updtaing the system or sample databases
   WITHOUT checking for occupancy conflicts
 
-  Useful primiarily for seting up the system outside of normal experiment operations.   
+  Useful primiarily for seting up the system outside of normal experiment operations.  
+
+  Parameters
+  ----------
+  destination : nd:array
+    Address of the position to move the vial from
+  destination : nd:array
+    Address of the position to move the vail to
+  c : NorthC9
+    NorthC9 object for instrument control  
   """
   #### Source #####
   if source[0] == 1: #If sample is in the vial rack
@@ -611,6 +837,11 @@ def force_Move_Vial(source, destination, c):
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid source location for a sample")
   
+  if source[0] == 6: #If the source is the centrifuge
+      c.move_centrifuge(source[2]) #Move the centrifuge to loading position for this index
+      c.goto_safe(centrifuge_load_pos)
+      c.close_gripper()
+  
 
   #### Destination #####
 
@@ -670,3 +901,76 @@ def force_Move_Vial(source, destination, c):
   if destination[0] == 5: #If destination is the syringe pumps
     raise Exception("Syringe pumps not a valid destination for a sample")
   
+  if destination[0] == 6: #If the source is the centrifuge
+      c.move_centrifuge(destination[2]) #Move the centrifuge to loading position for this index
+      c.goto_safe(centrifuge_load_pos)
+      c.open_gripper()
+  
+
+def load_balast(system_db, destination, c):
+    """
+    Function to load a balast vial into the centrifuge.
+    hijacks the Move_Sample() function to update the balast part of the system_db in place of the expected sample_db.
+
+    Finds the lowest index balast vial that is in the vial rack and moves that to the centrifuge position specified in the destination. 
+    
+    Parameters
+    ----------
+    system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+    destination : nd:array
+      Address of the position to move the balast vial to
+    c : NorthC9
+      NorthC9 object for instrument control 
+    """
+    centrifuge = system_db["centrifuge"]
+
+    balast = centrifuge["Balast"]
+
+    for key in balast.keys():
+        location_prefix = balast[key]["Address"][0]
+        if location_prefix == 1: #balast is in the vial rack
+            Move_Sample(key, destination, balast, system_db, c)
+            break
+        
+def balance_centrifuge(system_db,c):
+    """
+    Function to balance the centrifuge.
+    Checks occupancy of each position.
+    Starts with the initial half of the postion indicies,
+    then compares the occupancy of those with the position 1/2 turn away.
+    
+    Each pair of positions must either both be empty or both have samples.
+    If only one of the pair has a sample, a balast vial is loaded to the position a 1/2 turn away.
+    
+    Parameters
+    ----------
+    system_db : dict (-like)
+      Database that tracks all the status of all components of the system
+    c : NorthC9
+      NorthC9 object for instrument control 
+
+    """
+    centrifuge = system_db["centrifuge"]
+
+    loading_order = centrifuge["Loading Order"]
+
+    half_turn = len(loading_order) // 2
+
+    for i in range(half_turn):
+        occ_0 = centrifuge[i]["Assignment"] #Find the occupancy of this position
+        occ_1 = centrifuge[i + half_turn]["Assignment"] #Find the occupancy of the position a half turn away
+
+        test_0 = occ_0 == "Empty"
+        test_1 = occ_1 == "Empty"
+
+        # NXOR of the tests - both positions must be "Empty" or both must have samples
+        test = not(test_0 ^ test_1)
+
+        if test == False:
+            if occ_0 == "Empty":
+                address = np.array([6, 0, i])
+            elif occ_1 == "Empty":
+                address = np.array([6, 0, i + half_turn])
+
+            load_balast(system_db, address, c)

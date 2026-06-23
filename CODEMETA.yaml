@@ -30,7 +30,7 @@
 ---
 categories:
   # - ai-ml
-  # - performance-and-workflow
+  - performance-and-workflow
   - scientific-software
   # - simulation
   # - tools
@@ -68,7 +68,7 @@ themes:
   #     - Structural engineering
   #     - Sustainable buildings
   #
-  # - Chemistry
+  - Chemistry
   #     - Analytical chemistry
   #     - Chemical engineering and processing
   #     - Chemical thermodynamics and chemical properties
@@ -202,7 +202,7 @@ themes:
   #     - Systems integration
   #     - Technology commercialization
   #
-  # - Materials
+  - Materials
   #     - Ceramics
   #     - Composites
   #     - Concrete and cement

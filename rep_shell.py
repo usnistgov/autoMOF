@@ -18,3 +18,4 @@ convenience.c=c9
 #cam = SimpleCamera(0)
 
 # scan_barcode(cam, rack_left[2], pickup = True)
+
