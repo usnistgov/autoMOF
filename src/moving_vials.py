@@ -1,10 +1,10 @@
 import numpy as np
 
-# from drmxlt_MOF.Binary_reaction.sample_db_setup import find_address
-# from drmxlt_MOF.Locator import *
+# from .Binary_reaction.sample_db_setup import find_address
+# from .Locator import *
 from Locator import *
 #TODO move reactor locations to Locator.py from Locator_supplemental.py
-# from drmxlt_MOF.Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
+# from .Locator_supplemental import reactor_0, reactor_1, reactor_2, reactor_3, reactor_4, reactor_5, reactor_6, reactor_7
 
 
 
