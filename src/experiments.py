@@ -2,7 +2,7 @@ import numpy as np
 
 # from drmxlt_MOF.ternary_composition_utils import random_ternary_composition
 from .ternary_composition_utils import random_ternary_composition, generate_simplex_grid
-from drmxlt_MOF.op_scheduler import create_unit_ops_df, assign_reactors, define_cp_job
+from .op_scheduler import create_unit_ops_df, assign_reactors, define_cp_job
 
 class Experiment():
     """"Base class for all experiments"""

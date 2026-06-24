@@ -5,8 +5,8 @@ import numpy as np
 import collections
 from ortools.sat.python import cp_model
 
-from drmxlt_MOF.experiments import Ternary_colordemo, Cu_BTC
-from drmxlt_MOF.schedule_plotter import plot_gantt_chart
+from .experiments import Ternary_colordemo, Cu_BTC
+from .schedule_plotter import plot_gantt_chart
 
 import copy
 

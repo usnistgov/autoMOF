@@ -1,6 +1,6 @@
 
-from drmxlt_MOF.pipette_traking import get_next_pipette_tip, pip_rem
-from drmxlt_MOF.Locator_supplemental import zip_to_locator, zip_to_pipette_z, waste_disposal_offset
+from .pipette_traking import get_next_pipette_tip, pip_rem
+from .Locator_supplemental import zip_to_locator, zip_to_pipette_z, waste_disposal_offset
 import north.n9_kinematics as n9
 from Locator import home
 

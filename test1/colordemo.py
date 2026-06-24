@@ -1,3 +1,0 @@
-from drmxlt_discovering_color import discover_color_AL_campaign
-
-discover_color_AL_campaign(2,20,False,show_fig=False)

@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from drmxlt_MOF.north_simple_camera import SimpleCamera, SimplePhoto
+from .north_simple_camera import SimpleCamera, SimplePhoto
 from time import sleep
 
 def crop_img(img, x1, y1, x2, y2):

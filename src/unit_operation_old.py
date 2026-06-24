@@ -1,12 +1,12 @@
 import time
 import numpy as np
 
-from drmxlt_MOF.moving_vials import full_gripper_available_check, Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample, find_open_reactor_addresses, find_open_vial_rack_addresses
-from drmxlt_MOF.fluid_dispensing import Fluid_dispense
-from drmxlt_MOF.dummy_c9 import tare_balance
-from drmxlt_MOF.im_proc import measure_color
-from drmxlt_MOF.starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check, read_temperature
-from drmxlt_MOF.system_db_setup import machine_key_checkout, machine_key_release
+from .moving_vials import full_gripper_available_check, Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample, find_open_reactor_addresses, find_open_vial_rack_addresses
+from .fluid_dispensing import Fluid_dispense
+from .dummy_c9 import tare_balance
+from .im_proc import measure_color
+from .starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check, read_temperature
+from .system_db_setup import machine_key_checkout, machine_key_release
 from pyzbar.pyzbar import decode
 
 # from drmxlt_MOF.Locator import camera_pos

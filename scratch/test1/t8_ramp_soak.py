@@ -1,6 +1,6 @@
 # t8 ramp soak test
 from north import NorthC9
-import omega7523_interface as om
+import scratch.test1.omega7523_interface as om
 
 
 c9 = NorthC9('A', network_serial="FT6VE3MC", heartbeat=True)

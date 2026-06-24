@@ -1,5 +1,5 @@
 from north import NorthC9
-from powder_settings import *  # import everything from powder settings, should be in same dir as this script
+from scratch.test1.powder_settings import *  # import everything from powder settings, should be in same dir as this script
 from time import perf_counter
 
 

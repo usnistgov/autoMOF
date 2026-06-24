@@ -6,7 +6,7 @@ import GPy
 from matplotlib import pyplot as plt
 import mpltern
 from mpltern.datasets import get_triangular_grid
-from colorfunc import colormix
+from scratch.test1.colorfunc import colormix
 
 
 def compositions_3d(compositions_2d):
@@ -158,10 +158,11 @@ def train(training_x, training_y):
   expects training_x in 3D compositions
   and training y in 3D RGB values (i.e. [R, G, B])."""
   #Define the model
-  kernel1 = GPy.kern.RBF(input_dim=3, variance=1., lengthscale=1.)
+  kernel1 = GPy.kern.RBF(input_dim=3, variance=.1, lengthscale=.1)
   kernel2 = GPy.kern.Coregionalize(input_dim = 1, output_dim=3, rank=3 )
 
   kernel = kernel1 * kernel2
+  #kernel = kernel1
 
   #Range must have a mean of 0. So for RGB values [0,255] we should subtract 128
   # train_y = training_y - 128
@@ -202,8 +203,7 @@ def min_confidence_to_target(mean, var, targetRGB):
 
   return next, acq_funct
 
-
-def discover_color_AL_campaign(starting_measurements, max_loops, simulate ):
+def discover_color_AL_campaign(starting_measurements, max_loops, simulate, show_fig ):
     #Number of random data points to start with
     # starting_measurements = 2
 
@@ -235,6 +235,11 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate ):
     measured_compositions = np.empty((0, 3))
     measured_RGB = np.empty((0, 3))
 
+    #Set up containers for ploting
+    variance_tracker = np.empty((0, 1))
+    predicted_RGB = np.empty((compositions.shape[0], 3, 0))
+    RMSE_tracker = np.empty((0, 1))
+
     for i in range(max_loops):
         #Find the compositions to be measured
         next_compositions = compositions[next_indexes].reshape(-1,3)
@@ -262,9 +267,17 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate ):
 
         #Predict over the whole domain
         mean, var = predict(model, compositions)
+        #Add that to the trackers
+        variance_tracker = np.concatenate((variance_tracker, np.sum(var).reshape(-1,1)), axis=0)
+        predicted_RGB = np.concatenate((predicted_RGB, mean.reshape(-1, 3, 1)), axis=2)
+
+        #Predict over just the un-measured locations
+        unmeasured_indexes = np.setdiff1d(domain_index, measured_indexes)
+        mean_unmeasured, var_unmeasured = predict(model, compositions[unmeasured_indexes])
 
         #Acquire
-        next_indexes = pure_explore(mean, var)
+        next_unmeasured_indexes = pure_explore(mean_unmeasured, var_unmeasured)
+        next_indexes = unmeasured_indexes[next_unmeasured_indexes]
         next_indexes = next_indexes.reshape(-1,1)
 
         #Add the next vial to the array
@@ -273,8 +286,8 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate ):
                                         axis=0)
 
         #Plot
-        fig1 = plt.figure(figsize = (6,24))
-        ax1 = fig1.add_subplot(131, projection="ternary")
+        fig1 = plt.figure(figsize = (13,4))
+        ax1 = fig1.add_subplot(121, projection="ternary")
         ax1.scatter(compositions[:,0], compositions[:,1], compositions[:,2],
                     marker= "o",
                     facecolors = mean/256,
@@ -284,30 +297,28 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate ):
                     )
 
         ax1.scatter(measured_compositions[:,0], measured_compositions[:,1], measured_compositions[:,2],
-                    marker= "x",
-                    facecolors = "k",
-                    s = 10,
+                    marker= "o",
+                    facecolors = "none",
+                    edgecolors = "k",
+                    s = 100,
                     alpha=1,
                     # edgecolors='r'
                     )
         ax1.scatter(compositions[next_indexes,0],
                     compositions[next_indexes,1],
                     compositions[next_indexes,2],
-                    marker= "o",
-                    facecolors = 'none',
+                    marker= "x",
+                    facecolors = 'k',
                     s = 100,
                     alpha=1,
-                    edgecolors='k'
                     )
         ax1.set_tlabel('A')
         ax1.set_llabel('B')
         ax1.set_rlabel('C')
         ax1.set_title('Predictions')
-        # plt.show()
 
-        # fig1 = plt.figure(figsize = (6,6))
-        ax2 = fig1.add_subplot(132, projection="ternary")
-        ax2.scatter(compositions[:,0], compositions[:,1], compositions[:,2],
+        ax2 = fig1.add_subplot(122, projection="ternary")
+        im = ax2.scatter(compositions[:,0], compositions[:,1], compositions[:,2],
                     marker= "o",
                     c = var.reshape(-1),
                     cmap = "plasma",
@@ -317,57 +328,257 @@ def discover_color_AL_campaign(starting_measurements, max_loops, simulate ):
                     )
 
         ax2.scatter(measured_compositions[:,0], measured_compositions[:,1], measured_compositions[:,2],
-                    marker= "x",
-                    facecolors = "k",
-                    s = 10,
+                    marker= "o",
+                    facecolors = "none",
+                    edgecolors = "k",
+                    s = 100,
                     alpha=1,
                     # edgecolors='r'
                     )
         ax2.scatter(compositions[next_indexes,0],
                     compositions[next_indexes,1],
                     compositions[next_indexes,2],
-                    marker= "o",
-                    facecolors = 'none',
+                    marker= "x",
+                    facecolors = 'k',
                     s = 100,
                     alpha=1,
-                    edgecolors='k'
                     )
         ax2.set_tlabel('A')
         ax2.set_llabel('B')
         ax2.set_rlabel('C')
         ax2.set_title('Uncertainty')
+        fig1.colorbar(im, ax=ax2, label = "Variance")
+        # ax2.colorbar(label = "Uncertainty")
 
-        diff = np.abs(groundtruth_RGB - mean)
-        diff = np.sum(diff, axis=1).reshape(-1)
-        # ax3 = fig1.add_subplot(133, projection="ternary")
-        # ax3.scatter(compositions[:,0], compositions[:,1], compositions[:,2],
-                    # marker= "o",
-                    # c = diff,
-                    # cmap = "plasma",
-                    # s = 10,
-                    # alpha=1,
-                    # # edgecolors='r'
-                    # )
+        if show_fig:
+          plt.show()
+        else:
+          plt.savefig(f'colorfig_{i}')
 
-        # ax3.scatter(measured_compositions[:,0], measured_compositions[:,1], measured_compositions[:,2],
-                    # marker= "x",
-                    # facecolors = "k",
-                    # s = 10,
-                    # alpha=1,
-                    # # edgecolors='r'
-                    # )
-        # ax3.scatter(compositions[next_indexes,0],
-                    # compositions[next_indexes,1],
-                    # compositions[next_indexes,2],
-                    # marker= "o",
-                    # facecolors = 'none',
-                    # s = 100,
-                    # alpha=1,
-                    # edgecolors='k'
-                    # )
-        # ax3.set_tlabel('A')
-        # ax3.set_llabel('B')
-        # ax3.set_rlabel('C')
-        # ax3.set_title('Diff to Ground Truth')
-        plt.savefig('colorfig.png')
-        plt.savefig(f'colorfig_{i}')
+        fig2 = plt.figure(figsize = (4,4))
+        ax1 = fig2.add_subplot(111)
+        ax1.plot(np.arange(i+1), variance_tracker, marker = "o")
+        ax1.set_xlabel("Loop")
+        ax1.set_ylabel("Total Variance")
+        ax1.set_title("Variance Trend")
+        if show_fig:
+          plt.show()
+        else:
+          plt.savefig(f'variance_performance_fig_{i}')
+
+
+        if i != 0:
+            previous_prediction_map = predicted_RGB[:, :, i-1]
+
+            previous_prediction = previous_prediction_map[measured_indexes.flatten().astype(int)][-1,:]
+
+            measurement = measured_RGB[-1,:]
+            print("Previous Prediction ", previous_prediction)
+            print("Measurement ", measurement)
+
+            RMSE = np.sqrt(np.sum((measurement - previous_prediction)**2))
+            RMSE_tracker = np.concatenate((RMSE_tracker, RMSE.reshape(-1,1)), axis=0)
+
+            fig3 = plt.figure(figsize = (4,4))
+            ax1 = fig3.add_subplot(111)
+            ax1.plot(np.arange(i), RMSE_tracker, marker = "o")
+            ax1.set_xlabel("Loop")
+            ax1.set_ylabel("RMSE")
+            ax1.set_title("RMSE Trend")
+            if show_fig:
+              plt.show()
+            else:
+              plt.savefig(f'RMSE_performance_fig_{i}')
+
+
+def target_color_AL_campaign(starting_measurements, max_loops, target_RGB, simulate, show_fig ):
+    #Number of random data points to start with
+    # starting_measurements = 2
+
+    #Number of active learning loops
+    # max_loops = 20
+
+    #Set-up the domain of mixtures
+    A_mesh, B_mesh, C_mesh = get_triangular_grid(101)
+
+    A_mesh = A_mesh.reshape(-1, 1)
+    B_mesh = B_mesh.reshape(-1, 1)
+    C_mesh = C_mesh.reshape(-1, 1)
+
+    compositions = np.hstack([A_mesh, B_mesh, C_mesh])
+    comp_2d = compositions_2d(compositions)
+
+    domain_index = np.arange(compositions.shape[0])
+
+    groundtruth_RGB = mix_and_measure(compositions, domain_index, 5, simulate=True)
+
+    #Choose the first random points
+    next_indexes = np.random.choice(domain_index, starting_measurements).reshape(-1,1)
+
+    #Set up vial index container
+    vial_index_array = np.arange(starting_measurements)
+
+    #Set up containers for the measured compositions and RGB
+    measured_indexes = np.empty((0, 1))
+    measured_compositions = np.empty((0, 3))
+    measured_RGB = np.empty((0, 3))
+
+    #Set up containers for ploting
+    variance_tracker = np.empty((0, 1))
+    predicted_RGB = np.empty((compositions.shape[0], 3, 0))
+    RMSE_tracker = np.empty((0, 1))
+
+    for i in range(max_loops):
+        #Find the compositions to be measured
+        next_compositions = compositions[next_indexes].reshape(-1,3)
+
+        #Find the next vials to be used
+        ###count how many measurements have been done, and slice those off the vial index array
+        next_vials = vial_index_array[measured_indexes.shape[0]:]
+
+        #Mix those compositions and measure the RGB of them
+        next_RGB = mix_and_measure(next_compositions,
+                                    next_vials,
+                                    5, simulate=simulate)
+        print("Next vials \n")
+        print(next_vials)
+        print("Next RGB \n")
+        print(next_RGB)
+
+        #Add results to containers
+        measured_indexes = np.concatenate((measured_indexes, next_indexes), axis=0)
+        measured_compositions = np.concatenate((measured_compositions, next_compositions), axis=0)
+        measured_RGB = np.concatenate((measured_RGB, next_RGB), axis=0)
+
+        #Train the model
+        model = train(measured_compositions, measured_RGB)
+
+        #Predict over the whole domain
+        mean, var = predict(model, compositions)
+        #Add that to the trackers
+        variance_tracker = np.concatenate((variance_tracker, np.sum(var).reshape(-1,1)), axis=0)
+        predicted_RGB = np.concatenate((predicted_RGB, mean.reshape(-1, 3, 1)), axis=2)
+
+        #Predict over just the un-measured locations
+        unmeasured_indexes = np.setdiff1d(domain_index, measured_indexes)
+        mean_unmeasured, var_unmeasured = predict(model, compositions[unmeasured_indexes])
+
+        #Acquire
+        next_unmeasured_indexes, acq_func =  min_confidence_to_target(mean_unmeasured, var_unmeasured,  target_RGB)
+        next_indexes = unmeasured_indexes[next_unmeasured_indexes]
+        next_indexes = next_indexes.reshape(-1,1)
+
+        #Add the next vial to the array
+        vial_index_array = np.concatenate((vial_index_array,
+                                        vial_index_array[-1].reshape(-1) + 1),
+                                        axis=0)
+
+        #Plot
+        fig1 = plt.figure(figsize = (13,4))
+        ax1 = fig1.add_subplot(121, projection="ternary")
+        ax1.scatter(compositions[:,0], compositions[:,1], compositions[:,2],
+                    marker= "o",
+                    facecolors = mean/256,
+                    s = 10,
+                    alpha=1,
+                    # edgecolors='r'
+                    )
+
+        ax1.scatter(measured_compositions[:,0], measured_compositions[:,1], measured_compositions[:,2],
+                    marker= "o",
+                    facecolors = "none",
+                    edgecolors = "k",
+                    s = 100,
+                    alpha=1,
+                    # edgecolors='r'
+                    )
+        ax1.scatter(compositions[next_indexes,0],
+                    compositions[next_indexes,1],
+                    compositions[next_indexes,2],
+                    marker= "x",
+                    facecolors = 'k',
+                    s = 100,
+                    alpha=1,
+                    )
+        ax1.set_tlabel('A')
+        ax1.set_llabel('B')
+        ax1.set_rlabel('C')
+        ax1.set_title('Predictions')
+
+        ax2 = fig1.add_subplot(122, projection="ternary")
+        im = ax2.scatter(compositions[:,0], compositions[:,1], compositions[:,2],
+                    marker= "o",
+                    c = var.reshape(-1),
+                    cmap = "plasma",
+                    s = 10,
+                    alpha=1,
+                    # edgecolors='r'
+                    )
+
+        ax2.scatter(measured_compositions[:,0], measured_compositions[:,1], measured_compositions[:,2],
+                    marker= "o",
+                    facecolors = "none",
+                    edgecolors = "k",
+                    s = 100,
+                    alpha=1,
+                    # edgecolors='r'
+                    )
+        ax2.scatter(compositions[next_indexes,0],
+                    compositions[next_indexes,1],
+                    compositions[next_indexes,2],
+                    marker= "x",
+                    facecolors = 'k',
+                    s = 100,
+                    alpha=1,
+                    )
+        ax2.set_tlabel('A')
+        ax2.set_llabel('B')
+        ax2.set_rlabel('C')
+        ax2.set_title('Uncertainty')
+        fig1.colorbar(im, ax=ax2, label = "Variance")
+        # ax2.colorbar(label = "Uncertainty")
+
+        if show_fig:
+          plt.show()
+        else:
+          plt.savefig(f'colorfig_{i}')
+
+        fig2 = plt.figure(figsize = (4,4))
+        ax1 = fig2.add_subplot(111)
+        ax1.plot(np.arange(i+1), variance_tracker, marker = "o")
+        ax1.set_xlabel("Loop")
+        ax1.set_ylabel("Total Variance")
+        ax1.set_title("Variance Trend")
+        if show_fig:
+          plt.show()
+        else:
+          plt.savefig(f'variance_performance_fig_{i}')
+
+
+        if i != 0:
+            previous_prediction_map = predicted_RGB[:, :, i-1]
+
+            previous_prediction = previous_prediction_map[measured_indexes.flatten().astype(int)][-1,:]
+
+            measurement = measured_RGB[-1,:]
+            print("Previous Prediction ", previous_prediction)
+            print("Measurement ", measurement)
+
+            RMSE = np.sqrt(np.sum((measurement - previous_prediction)**2))
+            RMSE_tracker = np.concatenate((RMSE_tracker, RMSE.reshape(-1,1)), axis=0)
+
+            fig3 = plt.figure(figsize = (4,4))
+            ax1 = fig3.add_subplot(111)
+            ax1.plot(np.arange(i), RMSE_tracker, marker = "o")
+            ax1.set_xlabel("Loop")
+            ax1.set_ylabel("RMSE")
+            ax1.set_title("RMSE Trend")
+            if show_fig:
+              plt.show()
+            else:
+              plt.savefig(f'RMSE_performance_fig_{i}')
+
+
+
+
+

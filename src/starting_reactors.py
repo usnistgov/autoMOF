@@ -1,7 +1,7 @@
 import numpy as np
 
 from north import NorthC9
-import drmxlt_MOF.omega7523_interface as om
+from . import omega7523_interface as om
 
 import time 
 

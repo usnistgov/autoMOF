@@ -1,16 +1,15 @@
 import time
 import numpy as np
 
-from drmxlt_MOF.moving_vials import full_gripper_available_check, Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample, find_open_reactor_addresses, find_open_vial_rack_addresses
-from drmxlt_MOF.fluid_dispensing import Fluid_dispense
-from drmxlt_MOF.dummy_c9 import tare_balance
-from drmxlt_MOF.im_proc import measure_color
-from drmxlt_MOF.starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check, read_temperature
-from drmxlt_MOF.system_db_setup import machine_key_checkout, machine_key_release
-from drmxlt_MOF.op_launcher import write_db_files
+from .moving_vials import full_gripper_available_check, Violent_Action_Precheck, assign_sample_to_vial, Premove_Check_, Move_Sample, find_open_reactor_addresses, find_open_vial_rack_addresses, find_open_centrifuge_position
+from .fluid_dispensing import Fluid_dispense
+from .dummy_c9 import tare_balance
+from .im_proc import measure_color
+from .starting_reactors import hold_temp, temp_ramp_up_hold_down, Reactor_ready_check, read_temperature
+from .system_db_setup import machine_key_checkout, machine_key_release
+from .op_launcher import write_db_files
 from pyzbar.pyzbar import decode
 
-# from drmxlt_MOF.Locator import camera_pos
 from Locator import camera_pos, clamp, home, barcode_pos
 
 import asyncio
@@ -1291,7 +1290,7 @@ async def Centrifuge(op_df_index, Sample_ID, c, system_db, experiment, op_name):
 
   #Check out the keys for the Arm&Clamp, and for the centrifuge position
   system_db = await machine_key_checkout(system_db, "Arm&Clamp")
-  position = find_open_centrifuge_adresses(system_db)
+  position = find_open_centrifuge_position(system_db)
   destination = np.array([6, 0, position])
 
   system_db = await machine_key_checkout(system_db, "Centrifuge", position)

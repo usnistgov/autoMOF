@@ -1,6 +1,5 @@
-from drmxlt_MOF.pipette_traking import *
-from drmxlt_MOF.vial_tracking import *
-# from drmxlt_MOF.reactor_traking import *
+from .pipette_traking import *
+from .vial_tracking import *
 
 from time import sleep
 import asyncio

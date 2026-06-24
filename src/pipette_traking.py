@@ -2,7 +2,6 @@
 
 import numpy as np
 
-# from drmxlt_MOF.Locator import *
 from Locator import *
 
 #An array of showing how the indexes of the pipettes are aranged on the robot

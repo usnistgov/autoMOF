@@ -1,7 +1,7 @@
 import pandas as pd
 import time
 
-from picotc_read import picotc
+from scratch.test1.picotc_read import picotc
 
 from north import NorthC9  # import the class to communicate with the C9 controller
 c9 = NorthC9('A',network_serial="AU06D2C0")  # instantiate a C9 controller object with C9 network address A-
