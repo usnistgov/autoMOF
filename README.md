@@ -12,6 +12,9 @@ These are then executed using a system of status dependencies for each sample an
 For the implementation of the autonomous scheduler see [op_scheduler](./src/op_scheduler.py)
 For the implementation of the system of dependencies and mutexes see [unit_operation](./src/unit_operation.py) for the sample-wise UnitOPs, and [system_db_setup](./src/system_db_setup.py) for the mutexes associated with the physical resources of the robotic platform. 
 
+For the archived version of the code base used in the manuscript "Optimal Resource Utilization for Autonomous Laboratory Orchestrators", see [v0.0.1](https://github.com/usnistgov/autoMOF/releases/tag/v0.0.1).
+For the script used to generate the figures in that manuscript see [reschedule_test.py](https://github.com/usnistgov/autoMOF/blob/684634cb0c7450671892d5b33d19e4aceffd017f/reschedule_test.py)
+
 ---
 
 ## Development
