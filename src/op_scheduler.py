@@ -6,7 +6,6 @@ import collections
 import itertools
 from ortools.sat.python import cp_model
 
-from .experiments import Ternary_colordemo, Cu_BTC
 from .schedule_plotter import plot_gantt_chart
 
 import copy
@@ -882,8 +881,8 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
 
     if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
 
-        unit_ops_df["Start Time (Ds)"] = "?"
-        unit_ops_df["End Time (Ds)"] = "?"
+        unit_ops_df["Start Time (Ds)"] = None
+        unit_ops_df["End Time (Ds)"] = None
 
         for job in batch.jobs:
             sample_name = job.name
@@ -891,6 +890,7 @@ def solve_job_shop_schedule(unit_ops_df, num_reactors, plot = False):
                 task_name = task.name
                 unit_op_table_index = unit_ops_df[(unit_ops_df["Sample Name"] == sample_name) &
                                                 (unit_ops_df["UnitOP"] == task_name)].index.values[0]
+
                 if "dry" not in task_name:
                     unit_ops_df.loc[unit_op_table_index, "Start Time (Ds)"] = solver.value(task.start_var)
                     unit_ops_df.loc[unit_op_table_index, "End Time (Ds)"] = solver.value(task.end_var)
