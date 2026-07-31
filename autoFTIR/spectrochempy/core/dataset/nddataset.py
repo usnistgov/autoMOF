@@ -1,0 +1,2405 @@
+# ======================================================================================
+# Copyright (©) 2014-2026 Laboratoire Catalyse et Spectrochimie (LCS), Caen, France.
+# CeCILL-B FREE SOFTWARE LICENSE AGREEMENT
+# See full LICENSE agreement in the root directory.
+# ======================================================================================
+"""Module implementing the `NDDataset` class."""
+
+__all__ = ["NDDataset"]
+__dataset_methods__ = [  # Methods that can be called as API functions
+    "sort",
+    "squeeze",
+    "swapdims",
+    "transpose",
+    "reshape",
+    "to_array",
+    "to_netcdf",
+    "to_xarray",
+    "take",
+    "set_complex",
+    "to",
+    "to_base_units",
+    "to_reduced_units",
+    "ito",
+    "ito_base_units",
+    "ito_reduced_units",
+    "is_units_compatible",
+    "remove_masks",
+]
+
+
+import json
+import textwrap
+
+# Lazy import to avoid triggering matplotlib at module load time
+from contextlib import suppress
+from datetime import UTC
+from datetime import datetime
+from datetime import tzinfo
+from typing import Any
+
+# Python 3.10 compatibility: UTC was added in 3.11
+UTC = UTC
+from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfoNotFoundError
+
+import numpy as np
+import traitlets as tr
+from tzlocal import get_localzone
+
+from spectrochempy.core.dataset.arraymixins.ndio import NDIO
+from spectrochempy.core.dataset.arraymixins.ndmath import NDMath  # _set_ufuncs,
+from spectrochempy.core.dataset.arraymixins.ndmath import _set_operators
+from spectrochempy.core.dataset.basearrays.ndarray import DEFAULT_DIM_NAME
+from spectrochempy.core.dataset.basearrays.ndarray import NDArray
+from spectrochempy.core.dataset.basearrays.ndcomplex import NDComplexArray
+from spectrochempy.core.dataset.coord import Coord
+from spectrochempy.core.dataset.coordset import CoordSet
+from spectrochempy.utils._logging import warning_
+from spectrochempy.utils.datetimeutils import utcnow
+from spectrochempy.utils.exceptions import SpectroChemPyError
+from spectrochempy.utils.optional import import_optional_dependency
+from spectrochempy.utils.print import DisplayItem
+from spectrochempy.utils.print import DisplaySection
+from spectrochempy.utils.print import _html_heading
+from spectrochempy.utils.print import _render_sections
+from spectrochempy.utils.print import colored_output
+from spectrochempy.utils.system import get_user_and_node
+from spectrochempy.utils.typeutils import is_sequence
+
+
+def _normalize_json_compatible(value: Any) -> Any:
+    """Return a JSON-compatible copy of *value* or raise ``TypeError``."""
+    if isinstance(value, np.generic):
+        return value.item()
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {
+            str(key): _normalize_json_compatible(item) for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_normalize_json_compatible(item) for item in value]
+
+    raise TypeError(f"Value of type {type(value).__name__} is not JSON-compatible")
+
+
+def _is_portable_labels(labels):
+    """Return True if labels are exportable as portable string labels."""
+    if labels is None or labels.ndim != 1 or len(labels) == 0:
+        return False
+    return all(isinstance(v, str) or v is None for v in labels)
+
+
+def _export_labels(coord, dim, aux_vars):
+    """Append label export variables to *aux_vars* or emit a warning."""
+    labels = coord.labels
+    if labels is None or not coord.is_labeled:
+        return
+    if _is_portable_labels(labels):
+        safe = np.array(["" if v is None else v for v in labels])
+        attrs = {"scpy_coord_role": "label", "scpy_owner_dim": dim}
+        none_mask = np.array([v is None for v in labels])
+        if np.any(none_mask):
+            attrs["scpy_label_none_mask"] = json.dumps(
+                none_mask.tolist(), sort_keys=True
+            )
+        aux_vars.append(
+            (
+                f"{dim}_labels",
+                dim,
+                np.asarray(safe, dtype=str),
+                attrs,
+            )
+        )
+    else:
+        warning_(
+            f"Labels on dimension '{dim}' were not exported because they are "
+            "not part of the supported portable label subset.",
+        )
+
+
+def _serialize_portable_datetime(value: datetime | None) -> str | None:
+    """Return a stable textual form for portable datetime attrs."""
+    if value is None:
+        return None
+    if not isinstance(value, datetime):
+        raise TypeError(f"Value of type {type(value).__name__} is not a datetime")
+    return value.isoformat(sep=" ", timespec="seconds")
+
+
+def _restore_portable_datetime(value):
+    """Return a datetime restored from a portable attr or ``None``."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(
+            f"Portable datetime attr must be a string, got {type(value).__name__}"
+        )
+    return datetime.fromisoformat(value)
+
+
+def _serialize_portable_history(history) -> list[str] | None:
+    """Return a portable textual history payload or ``None`` for empty history."""
+    if not history:
+        return None
+    if not isinstance(history, list):
+        raise TypeError(
+            f"Portable history must be exported as a list, got {type(history).__name__}"
+        )
+    for entry in history:
+        if not isinstance(entry, str):
+            raise TypeError(
+                "Portable history entries must be strings, "
+                f"got {type(entry).__name__}"
+            )
+    return list(history)
+
+
+def _restore_portable_history(value):
+    """Return internal history tuples restored from portable textual content."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise TypeError(
+            f"Portable history attr must be a list, got {type(value).__name__}"
+        )
+
+    restored = []
+    for entry in value:
+        if not isinstance(entry, str):
+            raise TypeError(
+                "Portable history entries must be strings, "
+                f"got {type(entry).__name__}"
+            )
+        date_text, separator, message = entry.partition("> ")
+        if separator != "> " or not message:
+            raise ValueError("Portable history entry must use '<timestamp> <text>'")
+        restored.append((datetime.fromisoformat(date_text), message))
+    return restored
+
+
+def _prepare_xarray_dataset_for_netcdf(dataset):
+    """Convert a canonical xarray Dataset into a NetCDF-safe representation."""
+    xds = dataset.copy(deep=True)
+
+    for attr_name in ("scpy_meta", "scpy_skipped_meta_keys", "scpy_history"):
+        if attr_name in xds.attrs:
+            xds.attrs[attr_name] = json.dumps(xds.attrs[attr_name], sort_keys=True)
+
+    primary_name = xds.attrs.get("scpy_primary_variable")
+    mask_name = xds.attrs.get("scpy_mask_variable")
+    if mask_name in xds.data_vars:
+        mask_var = xds[mask_name]
+        mask_attrs = dict(mask_var.attrs)
+        mask_attrs["scpy_mask_encoding"] = "bool-as-int8"
+        xds[mask_name] = xds[mask_name].astype(np.int8)
+        xds[mask_name].attrs = mask_attrs
+
+    if primary_name in xds.data_vars and np.iscomplexobj(xds[primary_name].data):
+        xr = import_optional_dependency("xarray")
+        data_var = xds[primary_name]
+        real_name = f"{primary_name}__real"
+        imag_name = f"{primary_name}__imag"
+
+        real_attrs = dict(data_var.attrs)
+        imag_attrs = dict(data_var.attrs)
+        real_attrs["scpy_complex_component"] = "real"
+        imag_attrs["scpy_complex_component"] = "imag"
+
+        xds[real_name] = xr.DataArray(
+            np.asarray(data_var.data).real,
+            dims=data_var.dims,
+            coords=data_var.coords,
+            attrs=real_attrs,
+        )
+        xds[imag_name] = xr.DataArray(
+            np.asarray(data_var.data).imag,
+            dims=data_var.dims,
+            coords=data_var.coords,
+            attrs=imag_attrs,
+        )
+        xds = xds.drop_vars(primary_name)
+        xds.attrs["scpy_complex_representation"] = "split-real-imag"
+        xds.attrs["scpy_complex_real"] = real_name
+        xds.attrs["scpy_complex_imag"] = imag_name
+
+    return xds
+
+
+def _restore_xarray_dataset_from_netcdf(dataset):
+    """Restore the canonical xarray Dataset representation from NetCDF content."""
+    xds = dataset.copy(deep=True)
+
+    for attr_name in ("scpy_meta", "scpy_skipped_meta_keys", "scpy_history"):
+        if attr_name in xds.attrs and isinstance(xds.attrs[attr_name], str):
+            xds.attrs[attr_name] = json.loads(xds.attrs[attr_name])
+
+    complex_repr = xds.attrs.get("scpy_complex_representation")
+    primary_name = xds.attrs.get("scpy_primary_variable")
+    if complex_repr == "split-real-imag":
+        xr = import_optional_dependency("xarray")
+        real_name = xds.attrs.get("scpy_complex_real")
+        imag_name = xds.attrs.get("scpy_complex_imag")
+        if real_name in xds.data_vars and imag_name in xds.data_vars:
+            real_var = xds[real_name]
+            imag_var = xds[imag_name]
+            attrs = dict(real_var.attrs)
+            attrs.pop("scpy_complex_component", None)
+            xds[primary_name] = xr.DataArray(
+                np.asarray(real_var.data) + 1j * np.asarray(imag_var.data),
+                dims=real_var.dims,
+                coords=real_var.coords,
+                attrs=attrs,
+            )
+            xds = xds.drop_vars([real_name, imag_name])
+
+    mask_name = xds.attrs.get("scpy_mask_variable")
+    if mask_name in xds.data_vars:
+        xds[mask_name] = xds[mask_name].astype(bool)
+        xds[mask_name].attrs.pop("scpy_mask_encoding", None)
+
+    return xds
+
+
+def _handle_xarray_netcdf_backend_error(exc: Exception):
+    message = str(exc)
+    if (
+        "did not find a match in any of xarray's currently installed IO backends"
+        in message
+    ):
+        raise SpectroChemPyError(
+            "NetCDF I/O requires xarray plus an available NetCDF backend. "
+            "Install xarray and use the scipy backend or another xarray-compatible backend.",
+        ) from exc
+    raise exc
+
+
+# ======================================================================================
+# NDDataset class definition
+# ======================================================================================
+@tr.signature_has_traits
+class NDDataset(NDMath, NDIO, NDComplexArray):
+    r"""
+    The main N-dimensional dataset class used by  `SpectroChemPy`.
+
+    The `NDDataset` is the main object use by SpectroChemPy. Like numpy
+    `~numpy.ndarray`'s, `NDDataset` have the capability to be sliced, sorted and
+    subject to mathematical operations. But, in addition, `NDDataset` may have units,
+    can be masked and each dimensions can have coordinates also with units. This make
+    `NDDataset` aware of unit compatibility,
+    *e.g.,* for binary operation such as additions or subtraction or during the
+    application of mathematical operations.
+    In addition or in replacement of numerical data for coordinates,
+    `NDDataset` can also have labeled coordinates where labels can be different kind of
+    objects (`str`, `datetime`, `~numpy.ndarray` or other `NDDataset`'s, etc...).
+
+    Parameters
+    ----------
+    data : :term:`array-like`
+        Data array contained in the object. The data can be a list, a tuple,
+        a `~numpy.ndarray`, a subclass of `~numpy.ndarray`, another `NDDataset` or a
+        `Coord` object.
+        Any size or shape of data is accepted. If not given, an empty
+        `NDDataset` will be inited.
+        At the initialisation the provided data will be eventually cast to
+        a `~numpy.ndarray`.
+        If the provided objects is passed which already contains some
+        mask, or units, these elements will be used if possible to accordingly set
+        those of the created object. If possible, the provided data will not be copied
+        for `data` input, but will be passed by reference, so you should
+        make a copy of the `data` before passing them if that's the desired behavior
+        or set the `copy` argument to `True`.
+    coordset : `CoordSet` instance, optional
+        It contains the coordinates for the different dimensions of the `data`.
+        if `CoordSet` is provided, it must specify the `coord` and `labels` for all
+        dimensions of the `data`. Multiple `coord`'s can be specified in a
+        `CoordSet` instance for each dimension.
+    coordunits : `list`, optional, default: `None`
+        A list of units corresponding to the dimensions in the order of the
+        coordset.
+    coordtitles : `list`, optional, default: `None`
+        A list of titles corresponding of the dimensions in the order of the
+        coordset.
+    **kwargs
+        Optional keyword parameters (see Other Parameters).
+
+    Other Parameters
+    ----------------
+    dtype : `str` or `~numpy.dtype`, optional, default: `np.float64`
+        If specified, the data will be cast to this dtype, else the data
+        will be cast to float64 or complex128.
+    dims : `list` of `str`, optional
+        If specified the list must have a length equal to the number od data
+        dimensions (`ndim`) and the elements must be
+        taken among ``x,y,z,u,v,w or t``. If not specified, the dimension
+        names are automatically attributed in this order.
+    name : `str`, optional
+        A user-friendly name for this object. If not given, the automatic
+        `id` given at the object creation will be used as a name.
+    labels : :term:`array-like` of objects, optional
+        Labels for the `data`. labels can be used only for 1D-datasets.
+        The labels array may have an additional dimension, meaning several
+        series of labels for the same data.
+        The given array can be a list, a tuple, a `~numpy.ndarray` , a ndarray-like,
+        a  `NDArray` or any subclass of `NDArray` .
+    mask : :term:`array-like` of `bool` or `NOMASK` , optional
+        Mask for the data. The mask array must have the same shape as the
+        data. The given array can be a list,
+        a tuple, or a `~numpy.ndarray` . Each values in the array must be `False`
+        where the data are *valid* and True when
+        they are not (like in numpy masked arrays). If `data` is already a
+        :class:`~numpy.ma.MaskedArray` , or any
+        array object (such as a  `NDArray` or subclass of it), providing a
+        `mask` here, will cause the mask from the
+        masked array to be ignored.
+    units : `Unit` instance or `str`, optional
+        Units of the data. If data is a `Quantity` then `units` is set to
+        the unit of the `data`; if a unit is also
+        explicitly provided an error is raised. Handling of units use the
+        `pint <https://pint.readthedocs.org/>`__
+        package.
+    timezone : `datetime.tzinfo`, optional
+        The timezone where the data were created. If not specified, the local timezone
+        is assumed.
+    title : `str`, optional
+        The title of the data dimension. The `title` attribute should not be confused
+        with the `name` .
+        The `title` attribute is used for instance for labelling plots of the data.
+        It is optional but recommended to give a title to each ndarray data.
+    dlabel :  `str`, optional
+        Alias of `title` .
+    meta : `dict`-like object, optional
+        Additional metadata for this object. Must be dict-like but no
+        further restriction is placed on meta.
+    author : `str`, optional
+        Name(s) of the author(s) of this dataset. By default, name of the
+        computer note where this dataset is
+        created.
+    description : `str`, optional
+        An optional description of the nd-dataset. A shorter alias is `desc` .
+    origin : `str`, optional
+        Origin of the data: Name of organization, address, telephone number,
+        name of individual contributor, etc., as appropriate.
+    history : `str`, optional
+        A string to add to the object history.
+    copy : `bool`, optional
+        Perform a copy of the passed object. Default is False.
+
+    See Also
+    --------
+    Coord : Explicit coordinates object.
+    CoordSet : Set of coordinates.
+
+    Notes
+    -----
+    The underlying array in a `NDDataset` object can be accessed through the
+    `data` attribute, which will return a conventional `~numpy.ndarray`.
+
+    """
+
+    # Examples
+    # --------
+    # Usage by an end-user
+    #
+    # >>> x = scp.NDDataset([1, 2, 3])
+    # >>> print(x.data)  # doctest: +NORMALIZE_WHITESPACE
+    # [       1        2        3.]
+    # """
+
+    # coordinates
+    _coordset = tr.Instance(CoordSet, allow_none=True)
+
+    # some setting for NDDataset
+    _copy = tr.Bool(False)
+    _labels_allowed = tr.Bool(False)  # no labels for NDDataset
+
+    # dataset can be members of a project.
+    _parent = tr.Instance(
+        "spectrochempy.core.project.abstractproject.AbstractProject",
+        allow_none=True,
+    )
+
+    # history
+    _history = tr.List(tr.Tuple(), allow_none=True)
+
+    # Dates
+    _acquisition_date = tr.Instance(datetime, allow_none=True)
+    _created = tr.Instance(datetime)
+    _modified = tr.Instance(datetime)
+    _timezone = tr.Instance(tzinfo, allow_none=True)
+
+    # Metadata
+    _author = tr.Unicode()
+    _description = tr.Unicode()
+    _origin = tr.Unicode()
+
+    # ----------------------------------------------------------------------------------
+    # Initialisation
+    # ----------------------------------------------------------------------------------
+    def __init__(
+        self,
+        data=None,
+        coordset=None,
+        coordunits=None,
+        coordtitles=None,
+        **kwargs,
+    ):
+        NDComplexArray.__init__(self, data, **kwargs)
+        NDIO.__init__(self, **kwargs)
+        NDMath.__init__(self)
+
+        self._created = utcnow()
+        self.description = kwargs.pop("description", "")
+        self.author = kwargs.pop("author", get_user_and_node())
+        source_origin = data.origin if isinstance(data, NDDataset) else ""
+        self.origin = kwargs.pop("origin", source_origin)
+
+        history = kwargs.pop("history", None)
+        if history is not None:
+            self.history = history
+
+        self._parent = None
+
+        # eventually set the coordinates with optional units and title
+
+        if isinstance(coordset, CoordSet):
+            self.set_coordset(**coordset)
+
+        else:
+            if coordset is None:
+                coordset = [None] * self.ndim
+
+            if coordunits is None:
+                coordunits = [None] * self.ndim
+
+            if coordtitles is None:
+                coordtitles = [None] * self.ndim
+
+            _coordset = []
+            for c, u, t in zip(coordset, coordunits, coordtitles, strict=False):
+                if not isinstance(c, CoordSet):
+                    coord = Coord(c)
+                    if u is not None:
+                        coord.units = u
+                    if t is not None:
+                        coord.title = t
+                else:
+                    if u:  # pragma: no cover
+                        warning_(
+                            "units have been set for a CoordSet, "
+                            "but this will be ignored "
+                            "(units are only defined at the coordinate level",
+                        )
+                    if t:  # pragma: no cover
+                        warning_(
+                            "title will be ignored as they are only defined at "
+                            "the coordinates level",
+                        )
+                    coord = c
+
+                _coordset.append(coord)
+
+            if _coordset and set(_coordset) != {
+                Coord(),
+            }:  # if they are no coordinates do nothing
+                self.set_coordset(*_coordset)
+
+        self._modified = self._created
+
+    # ----------------------------------------------------------------------------------
+    # Special methods
+    # ----------------------------------------------------------------------------------
+    def _attributes_(self):
+        # Only these attributes are used for saving dataset
+        # WARNING: be careful to keep the present order of the three first elements!
+        # Needed for save/load operations
+        return [
+            # Keep the following order
+            "dims",
+            "coordset",
+            "data",
+            # From here it is free
+            "name",
+            "title",
+            "mask",
+            "units",
+            "meta",
+            "author",
+            "description",
+            "history",
+            "created",
+            "modified",
+            # "acquisition_date",
+            "origin",
+            "transposed",
+            # "processeddata",
+            # "referencedata",
+            # "baselinedata",
+            # "state",
+            # "ranges",
+        ] + NDIO()._attributes_()
+
+    def __getitem__(self, items, **kwargs):
+        saveditems = items
+
+        # coordinate selection to test first
+        if isinstance(items, str):
+            with suppress(Exception):
+                return self._coordset[items]
+
+        # slicing
+        new, items = super().__getitem__(items, return_index=True)
+
+        if new is None:
+            return None
+
+        if self._coordset is not None:
+            new_coords = self._coordset._slice_dims(self.dims, items)
+            new.set_coordset(*new_coords, keepnames=True)
+
+        new.history = f"Slice extracted: ({saveditems})"
+        return new
+
+    def __getattr__(self, item):
+        # Handle deprecated plot-related attributes that are now properties
+        # These need to be checked here because traitlets intercepts attribute access
+        if item in ("fig", "ndaxes", "ax", "axT", "axec", "axecT", "axex", "axey"):
+            raise AttributeError(
+                f"The '{item}' attribute is no longer stored on NDDataset. "
+                "Use the returned axes from plot() instead, e.g.: ax = dataset.plot()"
+            )
+
+        if (
+            item.startswith("_")
+            or item
+            in [
+                "interface",
+                "clevels",
+                "coords",
+            ]
+            or "_validate" in item
+            or "_changed" in item
+        ):
+            # raise an error so that traits, ipython operation and more ...
+            # will be handled correctly
+            raise AttributeError
+
+        # as we are doing lazy_import, we look in the _api module)
+        from spectrochempy.lazyimport.api_methods import _LAZY_IMPORTS  # noqa: PLC0415
+
+        if item in {"read", "load_iris", "download_nist_ir"} or item.startswith(
+            "read_"
+        ):
+            # Reader functions create datasets from external data. They are
+            # intentionally exposed at package/plugin namespace level only
+            # (e.g. scp.read_omnic or scp.nmr.read_topspin), not as dataset
+            # methods or dataset plugin accessors.
+            raise AttributeError
+
+        from spectrochempy.plugins.manager import plugin_manager  # noqa: PLC0415
+        from spectrochempy.plugins.namespace import (
+            DatasetPluginAccessor,  # noqa: PLC0415
+        )
+        from spectrochempy.plugins.namespace import (
+            has_dataset_namespace,  # noqa: PLC0415
+        )
+        from spectrochempy.plugins.registry import registry  # noqa: PLC0415
+
+        plugin_manager.discover()
+        if has_dataset_namespace(registry, item):
+            return DatasetPluginAccessor(self, item, registry)
+
+        accessor_info = registry.get_accessor(item)
+        if accessor_info:
+            func = accessor_info["obj"]
+            if isinstance(func, type):
+                # Class-based accessor: instantiate with the dataset,
+                # giving the result object property-based access.
+                return func(self)
+            return lambda *args, **kwargs: func(self, *args, **kwargs)
+
+        if item in _LAZY_IMPORTS:
+            func = tr.import_item(_LAZY_IMPORTS[item] + "." + item)
+            # Create a bound method that calls the imported function with self as first argument
+            return lambda *args, **kwargs: func(self, *args, **kwargs)
+
+        # syntax such as ds.x, ds.y, etc...
+
+        if item[0] in self.dims or self._coordset:
+            # look also properties
+            attribute = None
+            index = 0
+            # print(item)
+            if len(item) > 2 and item[1] == "_":
+                attribute = item[1:]
+                item = item[0]
+                index = self.dims.index(item)
+
+            if self._coordset:
+                try:
+                    c = self._coordset[item]
+                    if isinstance(c, str) and c in self.dims:
+                        # probably a reference to another coordinate name
+                        c = self._coordset[c]
+
+                    if c.name in self.dims or c._parent_dim in self.dims:
+                        if attribute is not None:
+                            # get the attribute
+                            return getattr(c, attribute)
+                        return c
+                    raise AttributeError
+
+                except Exception as err:
+                    if item in self.dims:
+                        return None
+                    raise AttributeError from err
+
+            elif attribute is not None:
+                if attribute == "size":
+                    # we want the size but there is no coords, get it from the data shape
+                    return self.shape[index]
+                raise AttributeError(
+                    f"Can not find `{attribute}` when no coordinate is defined",
+                )
+
+            return None
+
+        raise AttributeError
+
+    def __setattr__(self, key, value):
+        # TODO: entering this function in debug stepping mode kill the program
+        #    need to investigate further, why!
+
+        if key in DEFAULT_DIM_NAME:  # syntax such as ds.x, ds.y, etc...
+            # Note the above test is important to avoid errors with traitlets
+            # even if it looks redundant with the following
+            if key in self.dims:
+                if self._coordset is None:
+                    # we need to create a coordset first
+                    self.set_coordset({self.dims[i]: None for i in range(self.ndim)})
+                _coordset = self._coordset._replace_dim(key, value)
+                _coordset = self._valid_coordset(_coordset)
+                self._coordset.set(_coordset)
+            else:
+                raise AttributeError(f"Coordinate `{key}` is not used.")
+        else:
+            # print(key, value)
+            super().__setattr__(key, value)
+
+    def __eq__(self, other, attrs=None):
+        attrs = self._attributes_()
+        for attr in (
+            "filename",
+            "name",
+            "author",
+            "description",
+            "history",
+            "created",
+            "modified",
+            "origin",
+        ):
+            # These attributes are not used for comparison (comparison based on data and units!)
+            with suppress(ValueError):
+                attrs.remove(attr)
+
+        return super().__eq__(other, attrs)
+
+    def __hash__(self):
+        # all instance of this class has same hash, so they can be compared
+        return super().__hash__ + hash(self._coordset)
+
+    # ----------------------------------------------------------------------------------
+    # Private methods and properties
+    # ----------------------------------------------------------------------------------
+    @tr.default("_coordset")
+    def _coordset_default(self):
+        return None
+
+    @tr.default("_timezone")
+    def _timezone_default(self):
+        # Return the default timezone (local timezone)
+        return get_localzone()
+
+    # @tr.validate("_created")
+    # def _created_validate(self, proposal):
+    #     date = proposal["value"]
+    #     if date.tzinfo is not None:
+    #         # make the date utc naive
+    #         date = date.replace(tzinfo=None)
+    #     return date
+
+    @tr.validate("_history")
+    def _history_validate(self, proposal):
+        history = proposal["value"]
+        if isinstance(history, list) or history is None:
+            # reset
+            self._history = None
+        return history
+
+    # @tr.validate("_modified")
+    # def _modified_validate(self, proposal):
+    #     date = proposal["value"]
+    #     if date.tzinfo is not None:
+    #         # make the date utc naive
+    #         date = date.replace(tzinfo=None)
+    #     return date
+
+    @tr.observe(tr.All)
+    def _anytrait_changed(self, change):
+        # ex: change {
+        #   'owner': object, # The HasTraits instance
+        #   'new': 6, # The new value
+        #   'old': 5, # The old value
+        #   'name': "foo", # The name of the changed trait
+        #   'type': 'change', # The event type of the notification, usually 'change'
+        # }
+
+        if change["name"] in ["_created", "_modified", "trait_added"]:
+            return
+
+        # all the time -> update modified date
+        self._modified = utcnow()
+        return
+
+    def _cstr(self):
+        # Display the metadata of the object and partially the data
+        out = ""
+        out += f"         name: {self.name}\n"
+        out += f"       author: {self.author}\n"
+        out += f"      created: {self.created}\n"
+        if (self._modified - self._created.replace(tzinfo=UTC)).seconds > 30:
+            out += f"     modified: {self.modified}\n"
+
+        wrapper1 = textwrap.TextWrapper(
+            initial_indent="",
+            subsequent_indent=" " * 15,
+            replace_whitespace=True,
+            width=self._text_width,
+        )
+
+        pars = self.description.strip().splitlines()
+        if pars:
+            out += "  description: "
+            desc = ""
+            if pars:
+                desc += f"{wrapper1.fill(pars[0])}\n"
+            for par in pars[1:]:
+                desc += "{}\n".format(textwrap.indent(par, " " * 15))
+            # the three escaped null characters are here to facilitate
+            # the generation of html outputs
+            desc = f"\0\0\0{desc.rstrip()}\0\0\0\n"
+            out += desc
+
+        if self._history:
+            pars = self.history
+            out += "      history: "
+            hist = ""
+            if pars:
+                hist += f"{wrapper1.fill(pars[0])}\n"
+            for par in pars[1:]:
+                hist += "{}\n".format(textwrap.indent(par, " " * 15))
+            # the three escaped null characters are here to facilitate
+            # the generation of html outputs
+            hist = f"\0\0\0{hist.rstrip()}\0\0\0\n"
+            out += hist
+
+        out += f"{self._str_value().rstrip()}\n"
+        out += f"{self._str_shape().rstrip()}\n" if self._str_shape() else ""
+        out += f"{self._str_dims().rstrip()}\n"
+
+        if not out.endswith("\n"):
+            out += "\n"
+        out += "\n"
+
+        if not self._html_output:
+            return colored_output(out.rstrip())
+        return out.rstrip()
+
+    def _loc2index(self, loc, dim=-1, *, units=None):
+        # Return the index of a location (label or coordinates) along the dim
+        # This can work only if `coords` exists.
+
+        if self._coordset is None:
+            raise SpectroChemPyError(
+                "No coords have been defined. Slicing or selection"
+                f" by location ({loc}) needs coords definition.",
+            )
+
+        coord = self.coord(dim)
+
+        return coord._loc2index(loc, units=units)
+
+    def _str_dims(self):
+        if self.is_empty:
+            return ""
+        if len(self.dims) < 1 or not hasattr(self, "_coordset"):
+            return ""
+        if not self._coordset or len(self._coordset) < 1:
+            return ""
+
+        self._coordset._html_output = (
+            self._html_output
+        )  # transfer the html flag if necessary: false by default
+
+        txt = self._coordset._cstr()
+        return txt.rstrip()  # remove the trailing '\n'
+
+    _repr_dims = _str_dims
+
+    def _repr_sections(self):
+        """
+        Build semantic display sections from NDDataset attributes.
+
+        Returns
+        -------
+        list of DisplaySection
+            ``"summary"``, ``"data"``, and ``"dimension"`` sections.
+        """
+        sections: list[DisplaySection] = []
+
+        # ------------------------------------------------------------------
+        # SUMMARY
+        # ------------------------------------------------------------------
+        summary_items: list[DisplayItem] = []
+        summary_items.append(DisplayItem("field", self.name, "name"))
+        summary_items.append(DisplayItem("field", self.author, "author"))
+        summary_items.append(DisplayItem("field", self.created, "created"))
+        if (self._modified - self._created.replace(tzinfo=UTC)).seconds > 30:
+            summary_items.append(DisplayItem("field", self.modified, "modified"))
+        if self.description.strip():
+            summary_items.append(
+                DisplayItem("field", self.description.strip(), "description")
+            )
+        if self._history:
+            hist = self.history
+            if isinstance(hist, list):
+                hist = "\n".join(hist)
+            summary_items.append(DisplayItem("field", hist, "history"))
+
+        sections.append(DisplaySection("summary", "Summary", summary_items))
+
+        # ------------------------------------------------------------------
+        # DATA
+        # ------------------------------------------------------------------
+        data_items: list[DisplayItem] = []
+        data_items.append(
+            DisplayItem("field", self.title if self.title else "<untitled>", "title")
+        )
+
+        if not self.is_empty and self._data is not None:
+            data_items.append(
+                DisplayItem(
+                    "data",
+                    self._format_display_values(sep="\n"),
+                    "values",
+                )
+            )
+
+        shape_text = self._str_shape()
+        if shape_text:
+            stripped = shape_text.strip()
+            if ": " in stripped:
+                skey, sval = stripped.split(": ", 1)
+                data_items.append(DisplayItem("field", sval, skey.strip()))
+            else:
+                data_items.append(DisplayItem("field", stripped, "shape"))
+
+        sections.append(DisplaySection("data", "Data", data_items))
+
+        # ------------------------------------------------------------------
+        # DIMENSION
+        # ------------------------------------------------------------------
+        if self._coordset and not self.is_empty and len(self._coordset) > 0:
+            sections.extend(self._coordset._repr_sections())
+
+        return sections
+
+    def _repr_html_(self):
+        sections = self._repr_sections()
+        body = _render_sections(sections)
+        heading = _html_heading(self)
+        return (
+            '<div class="scp-output">'
+            f"<details><summary>{heading}</summary>\n{body}\n"
+            "</details></div>"
+        )
+
+    def _dims_update(self, change=None):
+        # when notified that a coords names have been updated
+        _ = self.dims  # fire an update
+
+    @tr.validate("_coordset")
+    def _coordset_validate(self, proposal):
+        coords = proposal["value"]
+        return self._valid_coordset(coords)
+
+    def _valid_coordset(self, coords):
+        # uses in coords_validate and setattr
+        if coords is None:
+            return None
+
+        for k, coord in enumerate(coords):
+            if (
+                coord is not None
+                and not isinstance(coord, CoordSet)
+                and coord.data is None
+            ):
+                continue
+
+            # For coord to be acceptable, we require at least a NDArray, a NDArray subclass or a CoordSet
+            if not isinstance(coord, Coord | CoordSet):
+                if isinstance(coord, NDArray):
+                    coord = coords[k] = Coord(coord)
+                else:
+                    raise TypeError(
+                        "Coordinates must be an instance or a subclass of Coord class or NDArray, or of "
+                        f" CoordSet class, but an instance of {type(coord)} has been passed",
+                    )
+
+            if self.dims and coord.name in self.dims:
+                # check the validity of the given coordinates in terms of size (if it correspond to one of the dims)
+                size = coord.size
+
+                if self._implements("NDDataset"):
+                    idx = self._get_dims_index(coord.name)[0]  # idx in self.dims
+                    if size != self._data.shape[idx]:
+                        raise ValueError(
+                            f"the size of a coordinates array must be None or be equal"
+                            f" to that of the respective `{coord.name}`"
+                            f" data dimension but coordinate size={size} != data shape[{idx}]="
+                            f"{self._data.shape[idx]}",
+                        )
+                else:
+                    pass  # bypass this checking for any other derived type (should be done in the subclass)
+
+        coords._parent = self
+        return coords
+
+    @property
+    def _dict_dims(self):
+        _dict = {}
+        for index, dim in enumerate(self.dims):
+            if dim not in _dict:
+                _dict[dim] = {"size": self.shape[index], "coord": getattr(self, dim)}
+        return _dict
+
+    # ----------------------------------------------------------------------------------
+    # Public methods and property
+    # ----------------------------------------------------------------------------------
+    @property
+    def acquisition_date(self):
+        """Acquisition date."""
+        if self._acquisition_date is not None:
+            # take the one which has been previously set for this dataset
+            acq = self._acquisition_date.astimezone(self._timezone)
+            return acq.isoformat(sep=" ", timespec="seconds")
+        return None
+
+    @acquisition_date.setter
+    def acquisition_date(self, value):
+        self._acquisition_date = value
+
+    def add_coordset(self, *coords, dims=None, **kwargs):
+        """
+        Add one or a set of coordinates from a dataset.
+
+        Parameters
+        ----------
+        *coords : iterable
+            Coordinates object(s).
+        dims : list
+            Name of the coordinates.
+        **kwargs
+            Optional keyword parameters passed to the coordset.
+
+        """
+        if not coords and not kwargs:
+            # reset coordinates
+            self._coordset = None
+            return
+
+        if self._coordset is None:
+            # make the whole coordset at once
+            self._coordset = CoordSet(*coords, dims=dims, **kwargs)
+        else:
+            # add one coordinate
+            self._coordset._append(*coords, **kwargs)
+
+        if self._coordset:
+            # set a notifier to the updated traits of the CoordSet instance
+            tr.HasTraits.observe(self._coordset, self._dims_update, "_updated")
+            # force it one time after this initialization
+            self._coordset._updated = True
+
+    @property
+    def author(self):
+        """Creator of the dataset (str)."""
+        return self._author
+
+    @author.setter
+    def author(self, value):
+        self._author = value
+
+    @property
+    def history(self):
+        """Describes the history of actions made on this array (List of strings)."""
+        history = []
+        for date, value in self._history:
+            date = date.astimezone(self._timezone).isoformat(
+                sep=" ",
+                timespec="seconds",
+            )
+            value = value[0].capitalize() + value[1:]
+            history.append(f"{date}> {value}")
+        return history
+
+    @history.setter
+    def history(self, value):
+        if value is None:
+            return
+        if isinstance(value, list):
+            # history will be replaced
+            self._history = []
+            if len(value) == 0:
+                return
+            value = value[0]
+        date = utcnow()
+        self._history.append((date, value))
+
+    def coord(self, dim="x"):
+        """
+        Return the coordinates along the given dimension.
+
+        Parameters
+        ----------
+        dim : int or str
+            A dimension index or name, default index = `x` .
+            If an integer is provided, it is equivalent to the `axis` parameter for numpy array.
+
+        Returns
+        -------
+         `Coord`
+            Coordinates along the given axis.
+
+        """
+        # Lazy import to avoid triggering matplotlib at module load time
+        from spectrochempy.application.application import error_
+
+        idx = self._get_dims_index(dim)[0]  # should generate an error if the
+        # dimension name is not recognized
+        if idx is None:
+            return None
+
+        if self._coordset is None:
+            return None
+
+        # idx is not necessarily the position of the coordinates in the CoordSet
+        # indeed, transposition may have taken place. So we need to retrieve the coordinates by its name
+        name = self.dims[idx]
+        if name in self._coordset.names:
+            idx = self._coordset.names.index(name)
+            return self._coordset[idx]
+        error_(f"could not find this dimenson name: `{name}`")
+        return None
+
+    @property
+    def coordset(self):
+        """
+        `CoordSet` instance.
+
+        Contains the coordinates of the various dimensions of the dataset.
+        It's a readonly property. Use set_coords to change one or more coordinates at once.
+        """
+        if self._coordset and all(c.is_empty for c in self._coordset):
+            # all coordinates are empty, this is equivalent to None for the coordset
+            return None
+        return self._coordset
+
+    @coordset.setter
+    def coordset(self, coords):
+        if isinstance(coords, CoordSet):
+            self.set_coordset(**coords)
+        else:
+            self.set_coordset(coords)
+
+    @property
+    def coordnames(self):
+        """
+        List of the  `Coord` names.
+
+        Read only property.
+        """
+        if self._coordset is not None:
+            return self._coordset.names
+        return None
+
+    @property
+    def coordtitles(self):
+        """
+        List of the  `Coord` titles.
+
+        Read only property. Use set_coordtitle to eventually set titles.
+        """
+        if self._coordset is not None:
+            return self._coordset.titles
+        return None
+
+    @property
+    def coordunits(self):
+        """
+        List of the  `Coord` units.
+
+        Read only property. Use set_coordunits to eventually set units.
+        """
+        if self._coordset is not None:
+            return self._coordset.units
+        return None
+
+    @property
+    def created(self):
+        """Creation date object (Datetime)."""
+        created = self._created.astimezone(self._timezone)
+        return created.isoformat(sep=" ", timespec="seconds")
+
+    @property
+    def data(self):
+        """
+        The `data` array.
+
+        If there is no data but labels, then the labels are returned instead of data.
+        """
+        return super().data
+
+    @data.setter
+    def data(self, data):
+        # as we can't write super().data = data, we call _set_data
+        # see comment in the data.setter of NDArray
+        super()._set_data(data)
+
+    def delete_coordset(self):
+        """Delete all coordinate settings."""
+        self._coordset = None
+
+    # ...........................................................................................................
+    @property
+    def description(self):
+        """Provides a description of the underlying data (str)."""
+        return self._description
+
+    comment = description
+    comment.__doc__ = """Provides a comment (Alias to the description attribute)."""
+
+    # ..........................................................................
+    @description.setter
+    def description(self, value):
+        self._description = value
+
+    @property
+    def local_timezone(self):
+        """Return the local timezone."""
+        return str(get_localzone())
+
+    @property
+    def modified(self):
+        """
+        Date of modification (readonly property).
+
+        Returns
+        -------
+        str
+            Date of modification in isoformat.
+        """
+        modified = self._modified.astimezone(self._timezone)
+        return modified.isoformat(sep=" ", timespec="seconds")
+
+    @property
+    def origin(self):
+        """
+        Origin of the data.
+
+        e.g. spectrometer or software
+        """
+        return self._origin
+
+    @origin.setter
+    def origin(self, value):
+        self._origin = value
+
+    @property
+    def parent(self):
+        """
+        `Project` instance.
+
+        The parent project of the dataset.
+        """
+        return self._parent
+
+    @parent.setter
+    def parent(self, value):
+        if self._parent is not None:
+            # A parent project already exists for this dataset but the
+            # entered values gives a different parent. This is not allowed,
+            # as it can produce impredictable results. We will first remove it
+            # from the current project.
+            self._parent.remove_dataset(self.name)
+        self._parent = value
+
+    def set_coordset(self, *args, **kwargs):
+        """
+        Set one or more coordinates at once.
+
+        Parameters
+        ----------
+        *args : `Coord` or `CoordSet`
+            One or more coordinates.
+        **kwargs
+            Optional keyword parameters passed to the coordset.
+
+        Warnings
+        --------
+        This method replace all existing coordinates.
+
+        See Also
+        --------
+        add_coordset : Add one or a set of coordinates from a dataset.
+        set_coordtitles : Set titles of the one or more coordinates.
+        set_coordunits : Set units of the one or more coordinates.
+
+        """
+        self._coordset = None
+        self.add_coordset(*args, dims=self.dims, **kwargs)
+
+    def set_coordtitles(self, *args, **kwargs):
+        """Set titles of the one or more coordinates."""
+        self._coordset.set_titles(*args, **kwargs)
+
+    def set_coordunits(self, *args, **kwargs):
+        """Set units of the one or more coordinates."""
+        self._coordset.set_units(*args, **kwargs)
+
+    def sort(self, **kwargs):
+        """
+        Return the dataset sorted along a given dimension.
+
+        By default, it is the last dimension [axis=-1]) using the numeric or label values.
+
+        Parameters
+        ----------
+        dim : str or int, optional, default=-1
+            Dimension index or name along which to sort.
+        pos : int , optional
+            If labels are multidimensional  - allow to sort on a define
+            row of labels : labels[pos]. Experimental : Not yet checked.
+        by : str among ['value', 'label'], optional, default=`value`
+            Indicate if the sorting is following the order of labels or
+            numeric coord values.
+        descend : `bool` , optional, default=`False`
+            If true the dataset is sorted in a descending direction. Default is False  except if coordinates
+            are reversed.
+        inplace : bool, optional, default=`False`
+            Flag to say that the method return a new object (default)
+            or not (inplace=True).
+
+        Returns
+        -------
+        `NDDataset`
+            Sorted dataset.
+
+        """
+        inplace = kwargs.get("inplace", False)
+        new = self.copy() if not inplace else self
+
+        # parameter for selecting the level of labels (default None or 0)
+        pos = kwargs.pop("pos", None)
+
+        # parameter to say if selection is done by values or by labels
+        by = kwargs.pop("by", "value")
+
+        # determine which axis is sorted (dims or axis can be passed in kwargs)
+        # it will return a tuple with axis and dim
+        axis, dim = self.get_axis(**kwargs)
+        if axis is None:
+            axis, dim = self.get_axis(axis=0)
+
+        # get the corresponding coordinates (remember their order can be different
+        # from the order of dimension in dims. So we cannot just take the coord from
+        # the indice.
+        multi = getattr(self, dim)  # get the coordinate using the syntax such as self.x
+        coord = multi.default
+        # sort on the default coordinate (in case we have multicoordinates)
+
+        descend = kwargs.pop("descend", None)
+        if descend is None:
+            # when non specified, default is False (except for reversed coordinates)
+            descend = coord.reversed
+
+        # import warnings
+        # warnings.simplefilter("error")
+
+        indexes = []
+        for i in range(self.ndim):
+            if i == axis:
+                if not coord.has_data:
+                    # sometimes we have only label for Coord objects.
+                    # in this case, we sort labels if they exist!
+                    if coord.is_labeled:
+                        by = "label"
+                    else:
+                        # nothing to do for sorting
+                        # return inchanged dataset
+                        return new
+
+                args = coord._argsort(by=by, pos=pos, descend=descend)
+                setattr(new, dim, multi[args])
+                #  sort all coordinate in case of multicoordinates
+
+                indexes.append(args)
+            else:
+                indexes.append(slice(None))
+
+        new._data = new._data[tuple(indexes)]
+        if new.is_masked:
+            new._mask = new._mask[tuple(indexes)]
+
+        return new
+
+    def squeeze(self, *dims, inplace=False):
+        """
+        Remove single-dimensional entries from the shape of a NDDataset.
+
+        Parameters
+        ----------
+        *dims : None or int or tuple of ints, optional
+            Selects a subset of the single-dimensional entries in the
+            shape. If a dimension (dim) is selected with shape entry greater than
+            one, an error is raised.
+        inplace : bool, optional, default=`False`
+            Flag to say that the method return a new object (default)
+            or not (inplace=True).
+
+        Returns
+        -------
+        `NDDataset`
+            The input array, but with all or a subset of the
+            dimensions of length 1 removed.
+
+        Raises
+        ------
+        ValueError
+            If `dim` is not `None` , and the dimension being squeezed is not
+            of length 1.
+
+        """
+        # make a copy of the original dims
+        old = self.dims[:]
+
+        # squeeze the data and determine which axis must be squeezed
+        new, axis = super().squeeze(*dims, inplace=inplace, return_axis=True)
+
+        if axis is not None and new._coordset is not None:
+            # Remove coordinates for squeezed axes, tolerating singleton dims
+            # that never had an explicit coordinate assigned.
+            new._coordset = new._coordset._drop_dims(
+                [old[i] for i in axis],
+                missing="ignore",
+            )
+
+        new.history = "Data squeezed"
+        return new
+
+    def atleast_2d(self, inplace=False):
+        """
+        Expand the shape of an array to make it at least 2D.
+
+        Parameters
+        ----------
+        inplace : bool, optional, default=`False`
+            Flag to say that the method return a new object (default)
+            or not (inplace=True).
+
+        Returns
+        -------
+        `NDDataset`
+            The input array, but with dimensions increased.
+
+        See Also
+        --------
+        squeeze : The inverse operation, removing singleton dimensions.
+
+        """
+        new = self.copy() if not inplace else self
+
+        coordset = self.coordset
+        # mask = self.mask
+
+        if self.ndim == 0:
+            new._data = self._data[np.newaxis, np.newaxis]
+            new._mask = self._mask[np.newaxis, np.newaxis]
+            new.dims = ["v", "u"]
+            new.set_coordset(u=None, v=None)
+        elif self.ndim == 1:
+            xdim = new.dims[0]
+            xcoord = coordset[0] if coordset is not None else None
+            new._data = self._data[np.newaxis]
+            new._mask = self._mask[np.newaxis]
+            new.dims = ["u", xdim]
+            # new.set_coordset(x=coordset[0] if coordset is not None else None, u=None)
+            new.set_coordset({xdim: xcoord, "u": None})
+        return new
+
+    def swapdims(self, dim1, dim2, inplace=False):
+        """
+        Interchange two dimensions of a NDDataset.
+
+        Parameters
+        ----------
+        dim1 : int
+            First axis.
+        dim2 : int
+            Second axis.
+        inplace : bool, optional, default=`False`
+            Flag to say that the method return a new object (default)
+            or not (inplace=True).
+
+        Returns
+        -------
+        `NDDataset`
+            Swaped dataset.
+
+        See Also
+        --------
+        transpose : Transpose a dataset.
+
+        """
+        new = super().swapdims(dim1, dim2, inplace=inplace)
+        new.history = f"Data swapped between dims {dim1} and {dim2}"
+        return new
+
+    @property
+    def T(self):
+        """
+        Transposed `NDDataset` .
+
+        The same object is returned if `ndim` is less than 2.
+        """
+        return self.transpose()
+
+    def take(self, indices, **kwargs):
+        """
+        Take elements from an array.
+
+        Returns
+        -------
+        `NDDataset`
+            A sub dataset defined by the input indices.
+
+        """
+        # handle the various syntax to pass the axis
+        dims = self._get_dims_from_args(**kwargs)
+        axis = self._get_dims_index(dims)
+        axis = axis[0] if axis else None
+
+        # indices = indices.tolist()
+        if axis is None:
+            # just do a fancy indexing
+            return self[indices]
+
+        if axis < 0:
+            axis = self.ndim + axis
+
+        index = tuple(
+            [...] + [indices] + [slice(None) for i in range(self.ndim - 1 - axis)],
+        )
+        return self[index]
+
+    @property
+    def timezone(self):
+        """
+        Return the timezone information.
+
+        A timezone's offset refers to how many hours the timezone
+        is from Coordinated Universal Time (UTC).
+
+        In spectrochempy, all datetimes are stored in UTC, so that conversion
+        must be done during the display of these datetimes using tzinfo.
+        """
+        return str(self._timezone)
+
+    @timezone.setter
+    def timezone(self, val):
+        try:
+            self._timezone = ZoneInfo(val)
+        except ZoneInfoNotFoundError as e:
+            raise ZoneInfoNotFoundError(
+                "You can get a list of valid timezones in "
+                "https://en.wikipedia.org/wiki/tr.List_of_tz_database_time_zones ",
+            ) from e
+
+    def to_array(self):
+        """
+        Return a numpy masked array.
+
+        Other NDDataset attributes are lost.
+
+        Returns
+        -------
+        `~numpy.ndarray`
+            The numpy masked array from the NDDataset data.
+
+        Examples
+        --------
+        >>> dataset = scp.read('wodger.spg')  # doctest: +SKIP
+        >>> a = scp.to_array(dataset)  # doctest: +SKIP
+
+        equivalent to:
+
+        >>> a = np.ma.array(dataset)  # doctest: +SKIP
+
+        or
+
+        >>> a = dataset.masked_data  # doctest: +SKIP
+
+        """
+        return np.ma.array(self)
+
+    def to_xarray(self):
+        """
+        Convert a NDDataset instance to an `~xarray.Dataset` object.
+
+        Same-dimension ``CoordSet`` coordinates (multiple numeric coordinates
+        sharing a dimension) are exported as a dimension coordinate for the
+        default coordinate and non-dimension coordinates for auxiliary
+        coordinates, with ``scpy_coord_role`` and ``scpy_owner_dim`` markers.
+
+        Portable string labels on coordinates (1D string-only labels with no
+        mixed types) are exported as non-dimension coordinate variables with
+        ``scpy_coord_role="label"``. Non-exportable labels trigger a warning.
+
+
+        Warning: the xarray library must be available.
+
+        Returns
+        -------
+        object
+            An xarray.Dataset object.
+
+        """
+        xr = import_optional_dependency("xarray")
+        if xr is None:
+            return None
+
+        dims = tuple(self.dims)
+        primary_name = self._name if self._name else "data"
+
+        coords = {}
+        aux_vars = []
+        for dim in dims:
+            coord = self.coord(dim)
+            if coord is None or coord.is_empty:
+                continue
+
+            if isinstance(coord, CoordSet) and coord.is_same_dim:
+                default_coord = coord.default
+                coord_attrs = {"scpy_coord_role": "default", "scpy_default": dim}
+                if default_coord.units is not None:
+                    coord_attrs["units"] = str(default_coord.units)
+                if default_coord.title != "<untitled>":
+                    coord_attrs["scpy_title"] = default_coord.title
+
+                coords[dim] = xr.DataArray(
+                    np.asarray(default_coord.data),
+                    dims=(dim,),
+                    attrs=coord_attrs,
+                )
+
+                for i, c in enumerate(coord.coords):
+                    if i == coord.default_index:
+                        continue
+                    aux_var = f"{dim}_aux_{i:04d}"
+                    aux_attrs = {
+                        "scpy_coord_role": "auxiliary",
+                        "scpy_owner_dim": dim,
+                    }
+                    if c.units is not None:
+                        aux_attrs["units"] = str(c.units)
+                    if c.title != "<untitled>":
+                        aux_attrs["scpy_title"] = c.title
+                    aux_vars.append(
+                        (
+                            aux_var,
+                            dim,
+                            np.asarray(c.data),
+                            aux_attrs,
+                        )
+                    )
+
+                _export_labels(default_coord, dim, aux_vars)
+            else:
+                coord_attrs = {"scpy_coord_role": "default", "scpy_default": dim}
+                if coord.units is not None:
+                    coord_attrs["units"] = str(coord.units)
+                if coord.title != "<untitled>":
+                    coord_attrs["scpy_title"] = coord.title
+
+                coords[dim] = xr.DataArray(
+                    np.asarray(coord.data),
+                    dims=(dim,),
+                    attrs=coord_attrs,
+                )
+
+                _export_labels(coord, dim, aux_vars)
+
+        meta = {}
+        skipped_meta_keys = []
+        for key, value in self.meta.items():
+            try:
+                meta[key] = _normalize_json_compatible(value)
+            except TypeError:
+                skipped_meta_keys.append(key)
+
+        if skipped_meta_keys:
+            warning_(
+                "Skipping non-JSON-compatible metadata for xarray export: "
+                f"{', '.join(sorted(skipped_meta_keys))}",
+            )
+
+        data_attrs = {}
+        if self.units is not None:
+            data_attrs["units"] = str(self.units)
+
+        dataset_attrs = {
+            "scpy_format": "nddataset-xarray",
+            "scpy_version": 1,
+            "scpy_primary_variable": primary_name,
+            "scpy_name": self.name,
+            "scpy_title": self.title,
+            "scpy_description": self.description,
+            "scpy_author": self.author,
+            "scpy_origin": self.origin,
+        }
+        for dataset_attr, value in (
+            ("scpy_created", self._created),
+            ("scpy_modified", self._modified),
+            ("scpy_acquisition_date", self._acquisition_date),
+        ):
+            serialized = _serialize_portable_datetime(value)
+            if serialized is not None:
+                dataset_attrs[dataset_attr] = serialized
+        serialized_history = _serialize_portable_history(self.history)
+        if serialized_history is not None:
+            dataset_attrs["scpy_history"] = serialized_history
+        if meta:
+            dataset_attrs["scpy_meta"] = json.loads(json.dumps(meta))
+        if skipped_meta_keys:
+            dataset_attrs["scpy_skipped_meta_keys"] = sorted(skipped_meta_keys)
+
+        xds = xr.Dataset(
+            data_vars={
+                primary_name: xr.DataArray(
+                    np.asarray(self.data),
+                    dims=dims,
+                    coords=coords,
+                    attrs=data_attrs,
+                )
+            },
+            attrs=dataset_attrs,
+        )
+
+        for var_name, var_dim, var_data, var_attrs in aux_vars:
+            xds.coords[var_name] = xr.DataArray(
+                var_data,
+                dims=(var_dim,),
+                attrs=var_attrs,
+            )
+
+        if self.is_masked:
+            mask_name = f"{primary_name}__mask"
+            xds[mask_name] = xr.DataArray(
+                np.asarray(self.mask, dtype=bool),
+                dims=dims,
+                coords=coords,
+                attrs={"scpy_role": "mask"},
+            )
+            xds.attrs["scpy_mask_variable"] = mask_name
+
+        return xds
+
+    def to_netcdf(self, filename=None, **kwargs):
+        """
+        Persist this dataset to NetCDF using the canonical xarray mapping.
+
+        Auxiliary same-dimension coordinates are persisted automatically
+        through the underlying ``to_xarray()`` output.
+
+        The current NetCDF portable subset is intentionally narrow:
+
+        - one `NDDataset`;
+        - default coordinates only;
+        - auxiliary same-dimension coordinates (``CoordSet`` sharing a
+          dimension);
+        - explicit mask variable support;
+        - JSON-compatible metadata only;
+        - complex data persisted through a split real/imag convention.
+
+        Parameters
+        ----------
+        filename : path-like or file-like, optional
+            Destination path or writable file-like object. If omitted, return
+            the serialized NetCDF bytes produced by xarray.
+        **kwargs
+            Additional keyword arguments forwarded to
+            `xarray.Dataset.to_netcdf()`. The default engine is `scipy`.
+
+        Returns
+        -------
+        object
+            The return value from `xarray.Dataset.to_netcdf()`.
+        """
+        kwargs.setdefault("engine", "scipy")
+        xds = _prepare_xarray_dataset_for_netcdf(self.to_xarray())
+        try:
+            return xds.to_netcdf(path=filename, **kwargs)
+        except Exception as exc:  # pragma: no cover - backend-dependent
+            _handle_xarray_netcdf_backend_error(exc)
+
+    @classmethod
+    def from_xarray(cls, dataset):
+        """
+        Build a minimal `NDDataset` instance from an `xarray.Dataset`.
+
+        This prototype covers numerical data, default coordinates, auxiliary
+        same-dimension coordinates, units, masks, JSON-compatible metadata,
+        title, name, description, author, origin, created, modified,
+        acquisition_date, and portable string labels.
+
+        Auxiliary coordinates are detected by ``scpy_coord_role`` and
+        ``scpy_owner_dim`` attributes and reassembled into a same-dimension
+        ``CoordSet`` with the dimension coordinate as the default.
+
+        Portable string labels are restored from non-dimension coordinates with
+        ``scpy_coord_role="label"`` and associated with the owning dimension's
+        coordinate via ``scpy_owner_dim``.
+
+
+        Rich CoordSet semantics and backend-specific persistence are
+        intentionally out of scope here.
+        """
+        xr = import_optional_dependency("xarray")
+        if xr is None:
+            return None
+
+        if not isinstance(dataset, xr.Dataset):
+            raise SpectroChemPyError("from_xarray() expects an xarray.Dataset.")
+
+        primary_name = dataset.attrs.get("scpy_primary_variable")
+        if primary_name is None:
+            data_vars = list(dataset.data_vars)
+            if len(data_vars) == 1:
+                primary_name = data_vars[0]
+            else:
+                raise SpectroChemPyError(
+                    "Cannot determine the primary xarray variable for NDDataset reconstruction."
+                )
+
+        if primary_name not in dataset.data_vars:
+            raise SpectroChemPyError(
+                f"Primary xarray variable `{primary_name}` is missing from the dataset."
+            )
+
+        data_var = dataset[primary_name]
+        dims = tuple(data_var.dims)
+
+        coordset = []
+        aux_dims = set()
+        for dim in dims:
+            if dim in data_var.coords:
+                xr_coord = data_var.coords[dim]
+                kwargs = {"name": dim}
+                units = xr_coord.attrs.get("units")
+                if units is not None:
+                    kwargs["units"] = units
+                title = xr_coord.attrs.get("scpy_title")
+                if title is not None:
+                    kwargs["title"] = title
+                dim_coord = Coord(np.asarray(xr_coord.data), **kwargs)
+
+                aux_coords = []
+                for aux_name in sorted(dataset.coords):
+                    if aux_name == dim:
+                        continue
+                    var = dataset.coords[aux_name]
+                    if (
+                        var.attrs.get("scpy_coord_role") == "auxiliary"
+                        and var.attrs.get("scpy_owner_dim") == dim
+                    ):
+                        kwargs_aux = {"name": aux_name}
+                        units_aux = var.attrs.get("units")
+                        if units_aux is not None:
+                            kwargs_aux["units"] = units_aux
+                        title_aux = var.attrs.get("scpy_title")
+                        if title_aux is not None:
+                            kwargs_aux["title"] = title_aux
+                        aux_coords.append(Coord(np.asarray(var.data), **kwargs_aux))
+
+                if aux_coords:
+                    aux_dims.add(dim)
+                    inner = CoordSet(dim_coord, *aux_coords, sorted=False)
+                    coordset.append(inner)
+                else:
+                    coordset.append(dim_coord)
+            else:
+                coordset.append(None)
+
+        kwargs = {
+            "dims": list(dims),
+            "coordset": coordset,
+            "name": dataset.attrs.get("scpy_name", primary_name),
+            "title": dataset.attrs.get("scpy_title"),
+            "meta": dataset.attrs.get("scpy_meta"),
+        }
+        for dataset_attr, kwarg_name in (
+            ("scpy_description", "description"),
+            ("scpy_author", "author"),
+            ("scpy_origin", "origin"),
+        ):
+            if dataset_attr in dataset.attrs:
+                kwargs[kwarg_name] = dataset.attrs[dataset_attr]
+
+        units = data_var.attrs.get("units")
+        if units is not None:
+            kwargs["units"] = units
+
+        mask_name = dataset.attrs.get("scpy_mask_variable")
+        if mask_name in dataset.data_vars:
+            kwargs["mask"] = np.asarray(dataset[mask_name].data, dtype=bool)
+
+        result = cls(np.asarray(data_var.data), **kwargs)
+
+        if "scpy_history" in dataset.attrs:
+            with suppress(TypeError, ValueError):
+                result._history = _restore_portable_history(
+                    dataset.attrs["scpy_history"]
+                )
+
+        for dataset_attr, internal_attr in (
+            ("scpy_created", "_created"),
+            ("scpy_acquisition_date", "_acquisition_date"),
+            ("scpy_modified", "_modified"),
+        ):
+            if dataset_attr not in dataset.attrs:
+                continue
+            with suppress(TypeError, ValueError):
+                setattr(
+                    result,
+                    internal_attr,
+                    _restore_portable_datetime(dataset.attrs[dataset_attr]),
+                )
+
+        # Identify the default coordinate explicitly for each same-dim CoordSet.
+        for dim in aux_dims:
+            inner = result._coordset.coords[result._coordset.names.index(dim)]
+            dim_data = np.asarray(data_var.coords[dim].data)
+            for j, c in enumerate(inner.coords):
+                if np.array_equal(np.asarray(c.data), dim_data):
+                    if j != inner._default:
+                        inner._default = j
+                    break
+
+        # Restore portable string labels.
+        for label_name in sorted(dataset.coords):
+            var = dataset.coords[label_name]
+            if var.attrs.get("scpy_coord_role") != "label":
+                continue
+            owner_dim = var.attrs.get("scpy_owner_dim")
+            if owner_dim is None:
+                continue
+            try:
+                idx = result._coordset.names.index(owner_dim)
+            except (ValueError, AttributeError):
+                continue
+            target = result._coordset.coords[idx]
+            if isinstance(target, CoordSet) and target.is_same_dim:
+                target = target.default
+            label_data = np.asarray(var.data, dtype=object)
+            none_mask = var.attrs.get("scpy_label_none_mask")
+            if none_mask is not None:
+                mask = json.loads(none_mask)
+                for i, is_none in enumerate(mask):
+                    if is_none:
+                        label_data[i] = None
+            target.labels = label_data
+
+        return result
+
+    @classmethod
+    def from_netcdf(cls, filename, **kwargs):
+        """
+        Reconstruct an `NDDataset` from the xarray-backed NetCDF portable subset.
+
+        Same-dimension ``CoordSet`` auxiliary coordinates are restored
+        automatically from the xarray coordinate attributes.
+
+        Parameters
+        ----------
+        filename : path-like or file-like
+            Source NetCDF file.
+        **kwargs
+            Additional keyword arguments forwarded to `xarray.open_dataset()`.
+            The default engine is `scipy`.
+
+        Returns
+        -------
+        NDDataset
+            Reconstructed dataset.
+        """
+        xr = import_optional_dependency("xarray")
+        kwargs.setdefault("engine", "scipy")
+
+        try:
+            with xr.open_dataset(filename, **kwargs) as xds:
+                xds.load()
+                restored = _restore_xarray_dataset_from_netcdf(xds)
+        except Exception as exc:  # pragma: no cover - backend-dependent
+            _handle_xarray_netcdf_backend_error(exc)
+
+        return cls.from_xarray(restored)
+
+    def transpose(self, *dims, inplace=False):
+        """
+        Permute the dimensions of a NDDataset.
+
+        Parameters
+        ----------
+        *dims : sequence of dimension indexes or names, optional
+            By default, reverse the dimensions, otherwise permute the dimensions
+            according to the values given.
+        inplace : bool, optional, default=`False`
+            Flag to say that the method return a new object (default)
+            or not (inplace=True).
+
+        Returns
+        -------
+        NDDataset
+            Transposed NDDataset.
+
+        See Also
+        --------
+        swapdims : Interchange two dimensions of a NDDataset.
+        """
+        new = super().transpose(*dims, inplace=inplace)
+        new.history = (
+            f"Data transposed between dims: {dims}" if dims else "Data transposed"
+        )
+
+        return new
+
+    def reshape(
+        self,
+        shape,
+        *,
+        dims=None,
+        coord_policy="safe",
+        coords=None,
+        inplace=False,
+    ):
+        """
+        Reshape an NDDataset to a new shape, with conservative metadata handling.
+
+        The underlying data array is reshaped exactly like `numpy.reshape`.
+        Coordinates are handled according to `coord_policy` to avoid attaching
+        misleading coordinates when dimensions are split or merged.
+
+        Parameters
+        ----------
+        shape : int or tuple of ints
+            New shape. One dimension may be ``-1`` to be inferred automatically.
+        dims : list of str, optional
+            Explicit dimension names for the output. Must match the output
+            number of dimensions and be unique.
+        coord_policy : {"safe", "drop", "strict"}, default="safe"
+            Policy for handling existing coordinates:
+
+            - ``"safe"`` : Preserve coordinates only for dimensions whose
+              shape and position are unambiguously unchanged. Create default
+              coordinates for new or ambiguous dimensions.
+            - ``"drop"`` : Discard all old coordinates and create default
+              coordinates for every dimension.
+            - ``"strict"`` : Raise `ValueError` if any existing coordinate
+              cannot be unambiguously mapped to the new shape.
+        coords : dict, optional
+            User-provided coordinates to override inferred ones. Keys are
+            dimension names, values are `Coord` objects. The length of each
+            coordinate must match the corresponding new dimension.
+        inplace : bool, optional, default=`False`
+            If True, modify the dataset in place.
+
+        Returns
+        -------
+        NDDataset
+            Reshaped dataset.
+
+        Examples
+        --------
+        No-op reshape preserves everything:
+
+        >>> X = scp.read("irdata/nh4y-activation.spg")  # doctest: +SKIP
+        >>> Y = X.reshape((60, 1000))  # doctest: +SKIP
+
+        Add a singleton cycle dimension:
+
+        >>> Y = X.reshape((1, 60, 1000), dims=("cycle", "time", "x"))  # doctest: +SKIP
+
+        Split raw spectra into cycles:
+
+        >>> Y = X.reshape((2, 60, 1000), dims=("cycle", "time", "x"))  # doctest: +SKIP
+        """
+        if coord_policy not in {"safe", "drop", "strict"}:
+            raise ValueError(
+                f"coord_policy must be 'safe', 'drop', or 'strict'. Got {coord_policy!r}."
+            )
+
+        # Resolve the shape, handling -1 like NumPy
+        shape = tuple(shape) if is_sequence(shape) else (shape,)
+        if -1 in shape:
+            known_size = 1
+            n_minus_one = 0
+            for s in shape:
+                if s == -1:
+                    n_minus_one += 1
+                else:
+                    known_size *= s
+            if n_minus_one != 1:
+                raise ValueError(
+                    "Only one dimension can be -1 for automatic inference."
+                )
+            inferred = self.size // known_size
+            if inferred * known_size != self.size:
+                raise ValueError(
+                    f"Cannot reshape array of size {self.size} into shape {shape}"
+                )
+            shape = tuple(inferred if s == -1 else s for s in shape)
+
+        if np.prod(shape) != self.size:
+            raise ValueError(
+                f"Cannot reshape array of size {self.size} into shape {shape}"
+            )
+
+        new = self.copy() if not inplace else self
+
+        # Reshape data and mask
+        new._data = new._data.reshape(shape)
+        if new.is_masked:
+            new._mask = new._mask.reshape(shape)
+
+        # --- Dimension names ------------------------------------------------
+        old_shape = self.shape
+        old_dims = list(self.dims)
+        new_ndim = len(shape)
+
+        if dims is not None:
+            if len(dims) != new_ndim:
+                raise ValueError(
+                    f"dims length ({len(dims)}) must match output ndim ({new_ndim})."
+                )
+            if len(set(dims)) != len(dims):
+                raise ValueError("dims must be unique.")
+            new_dims = list(dims)
+        else:
+            # Try to preserve dim names for unambiguously unchanged dimensions
+            new_dims = []
+            matched_old = set()
+
+            # Map old dims to new dims by finding exact shape matches at unique positions
+            for new_idx, new_size in enumerate(shape):
+                candidates = []
+                for old_idx, old_size in enumerate(old_shape):
+                    if old_size == new_size and old_idx not in matched_old:
+                        candidates.append(old_idx)
+                if len(candidates) == 1:
+                    old_idx = candidates[0]
+                    matched_old.add(old_idx)
+                    new_dims.append(old_dims[old_idx])
+                else:
+                    # ambiguous or new dimension — generate default
+                    new_dims.append(DEFAULT_DIM_NAME[-(new_ndim - new_idx)])
+
+            # Ensure we don't have duplicate default names if old dims also use them
+            seen = set()
+            for i, d in enumerate(new_dims):
+                if d in seen:
+                    # find a unique default name
+                    for alt in DEFAULT_DIM_NAME:
+                        if alt not in seen and alt not in new_dims:
+                            new_dims[i] = alt
+                            break
+                seen.add(d)
+
+        new._dims = new_dims
+
+        # --- Coordinate handling --------------------------------------------
+        old_coordset = self.coordset
+
+        # Explicit coordinate overrides are validated even when the source
+        # dataset has no coordset to preserve.
+        if coords is not None:
+            for dim_name, coord in coords.items():
+                if dim_name not in new_dims:
+                    raise ValueError(
+                        f"Coordinate dim '{dim_name}' not found in new dims {new_dims}."
+                    )
+                if len(coord) != shape[new_dims.index(dim_name)]:
+                    raise ValueError(
+                        f"Coordinate for '{dim_name}' has length {len(coord)}, "
+                        f"expected {shape[new_dims.index(dim_name)]}."
+                    )
+
+        if old_coordset is None:
+            new._coordset = None
+        else:
+            new._coordset = old_coordset._reshape_dims(
+                old_dims,
+                old_shape,
+                new_dims,
+                shape,
+                coord_policy=coord_policy,
+                coords=coords,
+            )
+
+        new.history = f"Data reshaped from {old_shape} to {shape}"
+        return new
+
+    # ======================================================================================
+    # Plotting (thin delegation to spectrochempy.plotting)
+    # ======================================================================================
+
+    def plot(self, method=None, **kwargs):
+        """
+        Plot the dataset.
+
+        This is a thin delegator that calls spectrochempy.plotting.dispatcher.plot_dataset.
+
+        Parameters
+        ----------
+        method : str, optional
+            Plotting method (e.g., "pen", "stack", "map", "image", "surface").
+            If None, method is chosen based on data dimensionality.
+        **kwargs
+            Additional arguments passed to the plotting function.
+
+            For ``method="stack"``, ``palette`` controls categorical or continuous
+            color selection. It accepts ``None``, a colormap name, or an explicit
+            list of colors.
+
+            For ``method="image"``, ``"map"``, or ``"surface"``, common
+            2D-specific kwargs include ``cmap``, ``cmap_mode``, ``center``,
+            ``norm``, ``contrast_safe``, and ``min_contrast``.
+
+        Returns
+        -------
+        matplotlib.axes.Axes
+            The matplotlib axes.
+
+        See Also
+        --------
+        plotting.plot1d : 1D plotting functions.
+        plotting.plot2d : 2D plotting functions.
+        plotting.plot3d : 3D plotting functions.
+        """
+        from spectrochempy.plotting.dispatcher import plot_dataset
+
+        return plot_dataset(self, method=method, **kwargs)
+
+    # ======================================================================================
+    # Deprecated plot-related stubs (no-op for backward compatibility)
+    # ======================================================================================
+    # These stubs exist for backward compatibility but do NOT store any state on the dataset.
+    # The plotting functions in spectrochempy.plotting now use local variables instead.
+
+    def _figure_setup(self, ndim=1, method=None, **kwargs):
+        """
+        Set up figure and axes (deprecated; now handled by spectrochempy.plotting functions).
+
+        This method exists for backward compatibility.
+        For internal use by plot functions only - creates figure and returns axes.
+        """
+        from spectrochempy.application.preferences import preferences as prefs
+        from spectrochempy.plotting.plot_setup import lazy_ensure_mpl_config
+        from spectrochempy.utils.mplutils import get_figure
+
+        lazy_ensure_mpl_config()
+
+        from matplotlib.axes import Axes
+
+        clear = kwargs.get("clear", True)
+        ax = kwargs.pop("ax", None)
+
+        ndaxes = {}
+
+        # Design principle: Explicit ax > clear > implicit figure state
+        # When ax is provided, it fully owns the figure - clear is ignored
+        if ax is not None:
+            # Explicit ax provided: reuse its figure, ignore clear entirely
+            if isinstance(ax, Axes):
+                fig = ax.figure
+                ax.name = "main"
+                ndaxes["main"] = ax
+            else:
+                raise ValueError(f"{ax} is not a valid Matplotlib Axes")
+
+        # When no explicit ax is provided, clear determines figure creation
+        elif not clear:
+            # clear=False: reuse current figure from pyplot
+            import matplotlib.pyplot as plt
+
+            if plt.get_fignums():
+                # Existing figures - use the current one
+                fig = plt.gcf()
+            else:
+                # No existing figures - create a new one
+                fig = get_figure(
+                    preferences=prefs,
+                    style=kwargs.get("style"),
+                    figsize=kwargs.get("figsize"),
+                    dpi=kwargs.get("dpi"),
+                )
+
+            if not fig.get_axes():
+                # No existing axes, create one
+                if ndim < 3:
+                    ax = fig.add_subplot(1, 1, 1)
+                else:
+                    ax = fig.add_subplot(111, projection="3d")
+                ax.name = "main"
+                ndaxes["main"] = ax
+            else:
+                # Reuse existing axes from current figure
+                for i, a in enumerate(fig.get_axes()):
+                    a.name = a.name or f"ax{i}"
+                    ndaxes[a.name] = a
+
+        else:
+            # clear=True (default): create new figure
+            fig = get_figure(
+                preferences=prefs,
+                style=kwargs.get("style"),
+                figsize=kwargs.get("figsize"),
+                dpi=kwargs.get("dpi"),
+            )
+
+            if ndim < 3:
+                ax = fig.add_subplot(1, 1, 1)
+            else:
+                ax = fig.add_subplot(111, projection="3d")
+
+            ax.name = "main"
+            ndaxes["main"] = ax
+
+        # Return method string and the created axes for use by plot functions
+        return method or "", fig, ndaxes
+
+    def _plot_resume(self, origin: Any, **kwargs: Any) -> None:
+        """
+        Resume plot cleanup (deprecated; now handled by spectrochempy.plotting functions).
+
+        This method exists for backward compatibility but does nothing.
+        The plot functions now handle cleanup internally.
+        """
+        pass
+
+    def close_figure(self):
+        """
+        Close figure (deprecated; now handled by spectrochempy.plotting functions).
+
+        This method exists for backward compatibility but does nothing.
+        """
+        pass
+
+    # ======================================================================================
+    # Stub properties that raise informative errors
+    # ======================================================================================
+
+    @property
+    def fig(self):
+        """
+        Matplotlib figure (deprecated).
+
+        Figure management is now handled by spectrochempy.plotting functions.
+        The returned axes from plot() has a .figure attribute.
+        """
+        raise AttributeError(
+            "The 'fig' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead, e.g.: ax = dataset.plot(); ax.figure"
+        )
+
+    @property
+    def ndaxes(self):
+        """
+        Matplotlib axes dictionary (deprecated).
+
+        Axes are no longer stored on NDDataset.
+        Use the returned axes from plot() instead.
+        """
+        raise AttributeError(
+            "The 'ndaxes' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead, e.g.: ax = dataset.plot()"
+        )
+
+    @property
+    def ax(self):
+        """
+        Main matplotlib axes (deprecated).
+
+        Axes are no longer stored on NDDataset.
+        Use the returned axes from plot() instead.
+        """
+        raise AttributeError(
+            "The 'ax' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead, e.g.: ax = dataset.plot()"
+        )
+
+    @property
+    def axT(self):
+        """Transposed matplotlib axes (deprecated)."""
+        raise AttributeError(
+            "The 'axT' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead."
+        )
+
+    @property
+    def axec(self):
+        """Colorbar matplotlib axes (deprecated)."""
+        raise AttributeError(
+            "The 'axec' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead."
+        )
+
+    @property
+    def axecT(self):
+        """Transposed colorbar matplotlib axes (deprecated)."""
+        raise AttributeError(
+            "The 'axecT' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead."
+        )
+
+    @property
+    def axex(self):
+        """Projection x matplotlib axes (deprecated)."""
+        raise AttributeError(
+            "The 'axex' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead."
+        )
+
+    @property
+    def axey(self):
+        """Projection y matplotlib axes (deprecated)."""
+        raise AttributeError(
+            "The 'axey' attribute is no longer stored on NDDataset. "
+            "Use the returned axes from plot() instead."
+        )
+
+
+# ======================================================================================
+# Set the operators
+# ======================================================================================
+_set_operators(NDDataset, priority=100000)

@@ -1,0 +1,412 @@
+# ======================================================================================
+# Copyright (©) 2014-2026 Laboratoire Catalyse et Spectrochimie (LCS), Caen, France.
+# CeCILL-B FREE SOFTWARE LICENSE AGREEMENT
+# See full LICENSE agreement in the root directory.
+# ======================================================================================
+import numpy as np
+import scipy.signal
+import traitlets as tr
+
+import spectrochempy.utils.traits as mtr
+from spectrochempy.extern.whittaker_smooth import whittaker_smooth as ws
+from spectrochempy.processing._base._processingbase import ProcessingConfigurable
+from spectrochempy.utils.decorators import signature_has_configurable_traits
+
+__dataset_methods__ = [
+    "savgol_filter",
+    "savgol",
+    "smooth",
+    "whittaker",
+]
+__configurables__ = ["Filter"]
+__all__ = __dataset_methods__ + __configurables__
+
+_common_see_also = """
+See Also
+--------
+Filter : Define and apply filters/smoothers using various algorithms.
+smooth : Function to smooth data using various window filters.
+savgol : Savitzky-Golay filter.
+savgol_filter : Alias of `savgol`
+whittaker : Whittaker-Eilers filter.
+"""
+
+
+# ======================================================================================
+# Filter class processor
+# ======================================================================================
+@signature_has_configurable_traits
+class Filter(ProcessingConfigurable):
+    """
+    Filters/smoothers processor.
+
+    The filters can be applied to 1D datasets consisting in a single row
+    with :term:`n_features` or to a 2D dataset with shape (:term:`n_observations`,
+    :term:`n_features`).
+
+    Various filters/smoothers can be applied to the data. The currently available
+    filters are:
+
+    - Moving average (`avg`)
+    - Convolution filters (`han`, `hamming`, `bartlett`, `blackman`)
+    - Savitzky-Golay filter (`savgol`)
+    - Whittaker-Eilers filter (`whittaker`)
+
+    Parameters
+    ----------
+    log_level : any of [``"INFO"``, ``"DEBUG"``, ``"WARNING"``, ``"ERROR"``], optional, default: ``"WARNING"``
+        The log level at startup. It can be changed later on using the
+        `set_log_level` method or by changing the ``log_level`` attribute.
+    method : any of [``"avg"``, ``"han"``, ``"hamming"``, ``"bartlett"``, ``"blackman"``, ``"median"``, ``"savgol"``, ``"whittaker"``], optional, default: ``"savgol"``
+        The filter method to be applied. By default, the Savitzky-Golay (savgol) filter is applied.
+    size : `int`, optional, default: 5
+        The size of the filter window. size must be a positive odd integer.
+    order : `int`, optional, default: 2
+        The order of the polynomial used to fit the data.
+    deriv : `int`, optional, default: 0
+        The order of the derivative to compute.
+    lamb : `float`, optional, default: 10.0
+        The smoothing parameter for the Whittaker-Eilers filter.
+    cval : `float`, optional, default: 0.0
+        The value to fill past the edges of the input if `mode` is ``'constant'``.
+
+    See Also
+    --------
+    smooth : Function to smooth data using various window filters.
+    savgol : Savitzky-Golay filter.
+    savgol_filter : Alias of `savgol`
+    whittaker : Whittaker-Eilers filter.
+    """
+
+    method = tr.Enum(
+        [
+            "avg",
+            "han",
+            "hamming",
+            "bartlett",
+            "blackman",
+            "median",
+            "savgol",
+            "whittaker",
+        ],
+        default_value="savgol",
+        help="The filter method to be applied. By default, "
+        "the Savitzky-Golay (savgol) filter is applied.",
+    ).tag(config=True)
+
+    size = mtr.PositiveOddInteger(
+        default_value=5,
+        help="The size of the filter window.size must be a positive odd integer.",
+    ).tag(config=True)
+
+    order = tr.Integer(
+        default_value=2,
+        help="The order of the polynomial used to fit the data"
+        "in the case of the Savitzky-Golay (savgol) filter. "
+        "`order` must be less than size.\n"
+        "In the case of the Whittaker-Eilers filter, order is the "
+        "difference order of the penalized least squares.",
+    ).tag(config=True, min=0)
+
+    deriv = tr.Integer(
+        default_value=0,
+        help="The order of the derivative to compute in the case of "
+        "the Savitzky-Golay (savgol) filter. This must be a "
+        "non-negative integer. The default is 0, which means to "
+        "filter the data without differentiating.",
+    ).tag(config=True, min=0)
+
+    lamb = tr.Float(
+        default_value=1.0,
+        help=r"Smoothing/Regularization parameter. The larger `lamb`, the smoother "
+        "the data.",
+    ).tag(config=True)
+
+    delta = tr.Float(
+        default_value=1.0,
+        help="The spacing of the samples to which the filter will be applied. "
+        "This is only used if deriv > 0.",
+    ).tag(config=True)
+
+    mode = tr.Enum(
+        ["mirror", "constant", "nearest", "wrap", "interp"],
+        default_value="interp",
+        help="""
+The type of extension to use for the padded signal to which the filter is applied.
+
+* When mode is ‘constant’, the padding value is given by `cval`.
+* When the ‘interp’ mode is selected (the default), no extension is used.
+  Instead, a polynomial of degree `order` is fit to the last `size` values
+  of the edges, and this polynomial is used to evaluate the last size // 2
+  output values.
+* When mode is ‘nearest’, the last size values are repeated.
+* When mode is ‘mirror’, the padding is created by reflecting the signal about the end
+  of the signal.
+* When mode is ‘wrap’, the signal is wrapped around on itself to create the padding.
+
+See `scipy.signal.savgol_filter` for more details on ‘mirror’, ‘constant’, ‘wrap’,
+and ‘nearest’.
+""",
+    ).tag(config=True)
+
+    cval = tr.Float(
+        default_value=0.0,
+        help="Value to fill past the edges of the input if `mode` is ‘constant’. ",
+    ).tag(config=True)
+
+    # ----------------------------------------------------------------------------------
+    # Initialisation
+    # ----------------------------------------------------------------------------------
+    def __init__(
+        self,
+        log_level="WARNING",
+        **kwargs,
+    ):
+        # call the super class for initialisation of the configuration parameters
+        # to do before anything else!
+        super().__init__(
+            log_level=log_level,
+            **kwargs,
+        )
+
+    # ----------------------------------------------------------------------------------
+    # Private methods
+    # ----------------------------------------------------------------------------------
+    def _transform(self, X):
+        kwargs = {  # param for avg and convolution filters
+            "axis": self._dim,
+            "mode": "reflect" if self.mode == "interp" else self.mode,
+            "cval": self.cval,
+        }
+
+        # Reset the output-title annotation: only the Savitzky-Golay derivative
+        # path sets it, so every other method (and deriv=0) leaves the title as
+        # that of the input data.
+        self._output_title_suffix = None
+
+        # smooth with moving average
+        # --------------------------
+        if self.method == "avg":
+            data = scipy.ndimage.uniform_filter1d(X, self.size, **kwargs)
+
+        # Convolution filters
+        # -------------------
+        elif self.method in ["han", "hamming", "bartlett", "blackman"]:
+            win = scipy.signal.get_window(self.method, self.size, fftbins=False)
+            win = win / np.sum(win)
+            data = scipy.ndimage.convolve1d(X, win, **kwargs)
+
+        # Median filter
+        # -------------
+        elif self.method == "median":
+            if "axis" in kwargs:
+                axis = kwargs.pop("axis")
+            if axis in (-2, 0):
+                size = (self.size, 1)
+            elif axis in (-1, 1):
+                size = (1, self.size)
+            data = scipy.ndimage.median_filter(X, size=size, **kwargs)
+
+        # Savitzky-Golay filter
+        # ---------------------
+        elif self.method == "savgol":
+            kwargs = {
+                "axis": self._dim,
+                "deriv": self.deriv,
+                "delta": self.delta,
+                "mode": self.mode,
+                "cval": self.cval,
+            }
+            data = scipy.signal.savgol_filter(X, self.size, self.order, **kwargs)
+
+            # Change derived data sign if we have reversed coordinate axis
+            if self._reversed and self.deriv:
+                data = data * (-1) ** self.deriv
+
+            # Annotate the output title so a derivative quantity is clearly
+            # identified. Units are intentionally kept as-is (the Savitzky-Golay
+            # path is index-based and does not validate even spacing, so we do
+            # not claim physically transformed units) and coordinates are
+            # preserved by the output wrapping.
+            if self.deriv:
+                ordinal = {1: "1st", 2: "2nd", 3: "3rd"}.get(
+                    self.deriv, f"{self.deriv}th"
+                )
+                self._output_title_suffix = f"({ordinal} derivative)"
+
+        # Whittaker-Eilers filter
+        # -----------------------
+        elif self.method == "whittaker":
+            data = np.apply_along_axis(ws, -1, X, self.lamb, self.order)
+
+        return data
+
+
+# ======================================================================================
+# API / NDDataset functions
+# ======================================================================================
+# Instead of using directly the Filter class, we provide here some functions
+# which are eventually more user-friendly and which can be used directly on NDDataset or
+# called from the API.
+
+# --------------------------------------------------------------------------------------
+
+
+def smooth(dataset, size=5, window="avg", **kwargs):
+    """
+    Smooth the data using a window with requested size.
+
+    This method is based on the convolution of a scaled kernel window with the signal.
+
+    Parameters
+    ----------
+    dataset : `NDDataset`
+        Input dataset to smooth.
+    size : `int`, optional, default: 5
+        The size of the smoothing window.
+    window : `str`, optional, default:'flat'
+        The type of window from 'flat' or 'avg', 'han' or 'hanning', 'hamming',
+        'bartlett', 'blackman'.
+        `avg` window will produce a moving average smoothing.
+    **kwargs : keyword arguments, optional
+        Additional keyword arguments passed to the filter.
+
+    Returns
+    -------
+    `NDDataset`
+        Smoothed data.
+
+    Other Parameters
+    ----------------
+    dim : `int`, optional, default: -1
+        Axis along which to apply the filter.
+    mode : `str`, optional, default: 'nearest'
+        The mode parameter determines how the array borders are handled.
+    cval : `float`, optional, default: 0.0
+        Value to fill past edges of input if mode is 'constant'.
+    log_level : `str`, optional, default: 'WARNING'
+        The log level for the filter.
+
+    See Also
+    --------
+    Filter : Filter processing.
+
+    """
+    if window in ["flat", "avg", "han", "hanning", "hamming", "bartlett", "blackman"]:
+        if window == "flat":
+            window = "avg"
+        if window == "hanning":
+            window = "han"
+
+        return Filter(method=window, size=size, **kwargs).transform(dataset)
+    raise ValueError(
+        f"Window type '{window}' is not supported. "
+        f"Supported types are 'flat' or 'avg', 'han' or 'hanning', 'hamming', "
+        f"'bartlett', 'blackman'.",
+    )
+
+
+# --------------------------------------------------------------------------------------
+def savgol(dataset, size=5, order=2, **kwargs):
+    """
+    Savitzky-Golay filter.
+
+    Wrapper of scpy.signal.savgol(). See the documentation of this function for more
+    details.
+
+    Parameters
+    ----------
+    dataset : `NDDataset`
+        Input dataset to filter.
+    size : `int`, optional, default: 5
+        The size of the smoothing window.
+    order : `int`, optional, default: 2
+        The order of the polynomial used to fit the data. `order` must be less
+        than size.
+    **kwargs : keyword arguments, optional
+        Additional keyword arguments passed to the filter.
+
+    Returns
+    -------
+    `NDDataset`
+        Smoothed data.
+
+    Other Parameters
+    ----------------
+    dim : `int`, optional, default: -1
+        Axis along which to apply the filter.
+    deriv : `int`, optional, default: 0
+        The order of the derivative to compute.
+    delta : `float`, optional, default: 1.0
+        The spacing of the samples to which the filter will be applied.
+    mode : `str`, optional, default: 'nearest'
+        The mode parameter determines how the array borders are handled.
+    cval : `float`, optional, default: 0.0
+        Value to fill past edges of input if mode is 'constant'.
+    log_level : `str`, optional, default: 'WARNING'
+        The log level for the filter.
+
+    See Also
+    --------
+    Filter : Filter processing.
+
+    Notes
+    -----
+    Even spacing of the axis coordinates is NOT checked.
+    Be aware that Savitzky-Golay algorithm is based on indexes, not on coordinates.
+
+    """
+    # TODO : check if coordinates are evenly spaced
+
+    return Filter(method="savgol", size=size, order=order, **kwargs).transform(dataset)
+
+
+def savgol_filter(*args, **kwargs):
+    """
+    Savitzky-Golay filter.
+
+    Alias of `savgol`.
+    """
+    return savgol(*args, **kwargs)
+
+
+def whittaker(dataset, lamb=1.0, order=2, **kwargs):
+    """
+    Smooth the data using the Whittaker smoothing algorithm.
+
+    This implementation based on the work by :cite:t:`eilers:2003` uses sparse matrices
+    enabling high-speed processing of large input vectors.
+
+    Copyright M. H. V. Werts, 2017 (see LICENSES/WITTAKER_SMOOTH_LICENSE.rst)
+
+    Parameters
+    ----------
+    dataset : `NDDataset`
+        Input dataset to smooth.
+    lamb : `float`, optional, default: 1.0
+        The smoothing parameter. Larger values make the result smoother.
+    order : `int`, optional, default: 2
+        The difference order of the penalized least-squares.
+    **kwargs : keyword arguments, optional
+        Additional keyword arguments passed to the filter.
+
+    Returns
+    -------
+    `NDdataset`
+        Smoothed data.
+
+    Other Parameters
+    ----------------
+    dim : `int`, optional, default: -1
+        Axis along which to apply the filter.
+    log_level : `str`, optional, default: 'WARNING'
+        The log level for the filter.
+
+    See Also
+    --------
+    Filter : Filter processing.
+
+    """
+    return Filter(method="whittaker", lamb=lamb, order=order, **kwargs).transform(
+        dataset,
+    )

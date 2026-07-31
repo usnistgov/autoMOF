@@ -1,0 +1,56 @@
+# Maintenance — spectrochempy_data
+
+## Qui peut déclencher une release ?
+
+Seuls les **mainteneurs** du dépôt. `master` est protégé.
+
+## Procédure normale (auto-release)
+
+Deux options :
+
+**Direct push (simple, pas de review) :**
+```bash
+git add testdata/
+git commit -m "Add spectra from experiment XYZ"
+git push origin master
+```
+
+**Pull Request (recommandé si vous voulez un avis sur les données) :**
+```bash
+git checkout -b new-data
+git add testdata/
+git commit -m "Add spectra from experiment XYZ"
+git push origin new-data
+# Ouvrir une PR → merge sur master → auto-release
+```
+
+**Le CI fait le reste :**
+- `rename_without_space.py` — remplace les espaces par `_` dans les noms de fichiers
+- `create_index_in_folder.py` — regénère les fichiers `__index__` YAML
+- Bump automatique du numéro de version (incrément simple : v1 → v2 → v3...)
+- Tag `v<N>` + GitHub Release créés
+- Build conda + upload sur Anaconda (`spectrocat` channel)
+
+## Relâche manuelle
+
+Depuis GitHub → Actions → **🚀 Auto-release** → `Run workflow` → `dry-run: false`.
+
+Utile si le push sur master n'a pas déclenché la release (ex: bug fixé après coup).
+
+## Prérequis
+
+- **`PAT_RELEASE`** : Personal Access Token (scope `repo`) dans les secrets du dépôt (Settings → Secrets and variables → Actions)
+- Le workflow utilise ce token pour push sur `master` protégé et créer la release
+
+## CI
+
+| Workflow | Déclencheur | Action |
+|---|---|---|
+| `main.yml` | PR / push develop / release | Build conda ; upload sur Anaconda (release ou `-l dev`) |
+| `release.yml` | Push sur `master` avec changement dans `testdata/` | Scripts, bump version, tag, release |
+
+Anaconda channel : `spectrocat`
+
+## Versioning
+
+Numérotation simple et séquentielle : `v1` → `v2` → `v3`... À chaque release, le numéro s'incrémente de 1. Pas de versionning sémantique.

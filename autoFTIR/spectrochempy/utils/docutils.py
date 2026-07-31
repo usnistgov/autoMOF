@@ -1,0 +1,313 @@
+# ======================================================================================
+# Copyright (©) 2014-2026 Laboratoire Catalyse et Spectrochimie (LCS), Caen, France.
+# CeCILL-B FREE SOFTWARE LICENSE AGREEMENT
+# See full LICENSE agreement in the root directory.
+# ======================================================================================
+"""
+Analyze docstrings to detect errors.
+
+Adapted from Pandas (see License in the root directory)
+"""
+
+import doctest
+import inspect
+import io
+import os
+import pathlib
+import subprocess
+import sys
+import tempfile
+
+import numpy
+from numpydoc.docscrape import get_doc_object
+from numpydoc.validate import Validator
+from numpydoc.validate import error
+from numpydoc.validate import validate
+
+# With template backend, matplotlib plots nothing
+# matplotlib.use("template")
+
+# --------------------------------------------------------------------------------------
+# DOCSTRING VALIDATION
+# --------------------------------------------------------------------------------------
+
+PRIVATE_CLASSES = [
+    "HasTraits",
+]
+ERROR_MSGS = {
+    "GL04": "Private classes ({mentioned_private_classes}) should not be "
+    "mentioned in public docstrings",
+    "GL05": "Use 'array-like' rather than 'array_like' in docstrings.",
+    "GL11": "Other Parameters section missing while `**kwargs` is in "
+    "class or method signature.",
+    "SA05": "{reference_name} in `See Also` section does not need `spectrochempy` "
+    "prefix, use {right_reference} instead.",
+    "EX02": "Examples do not pass tests:\n{doctest_log}",
+    "EX03": "flake8 error: {error_code} {error_message}{times_happening}",
+    "EX04": "Do not import {imported_library}, as it is imported "
+    "automatically for the examples (numpy as np, spectrochempy as scp)",
+}
+
+# public function
+
+
+def check_docstrings(module, obj, exclude=None):
+    if exclude is None:
+        exclude = []
+    exclude = exclude + [
+        "GL02",
+        "GL03",
+    ]
+    members = [f"{module}.{obj.__name__}"]
+    print(module)  # noqa: T201
+    print(obj.__name__)  # noqa: T201
+    for m in dir(obj):
+        member = getattr(obj, m)
+        if not m.startswith("_") and (
+            (
+                member.__class__.__name__ == "property"
+                or (hasattr(member, "__module__") and member.__module__ == module)
+            )
+            and m not in ["cross_validation_lock"]
+        ):
+            members.append(f"{module}.{obj.__name__}.{m}")
+            # print(f"{obj.__name__}.{m}")
+
+    for member in members:
+        result = _scpy_numpydoc_validate(member, exclude=exclude)
+        if result["errors"]:
+            result["member_name"] = member
+            raise _DocstringError(result)
+
+
+# private
+
+
+class _DocstringError(Exception):
+    def __init__(self, result):
+        message = ""
+        message += f"{len(result['errors'])} DocstringError(s) found:\n"
+        message += f"{' ' * 10}{'-' * 26}\n"
+        for err_code, err_desc in result["errors"]:
+            if err_code == "EX02":  # Failing examples are printed at the end
+                message += f"{' ' * 2}Examples do not pass tests\n"
+                continue
+            message += f"{' ' * 10}* {err_code}: {err_desc}\n"
+        if result["examples_errs"]:
+            message += "\n\nDoctests:\n---------\n"
+            message += result["examples_errs"]
+
+        super().__init__(message)
+
+
+def _scpy_error(code, **kwargs):
+    """
+    Copy of the numpydoc error function.
+
+    Since ERROR_MSGS can't be updated with our custom errors yet.
+    """
+    return (code, ERROR_MSGS[code].format(**kwargs))
+
+
+class _DocstringValidator(Validator):
+    def __init__(self, func_name, doc_obj=None):
+        self.func_name = func_name
+        if doc_obj is None:
+            doc_obj = get_doc_object(Validator._load_obj(func_name))
+        super().__init__(doc_obj)
+
+    @property
+    def name(self):
+        return self.func_name
+
+    @property
+    def has_kwargs(self):
+        return "**kwargs" in self.signature_parameters
+
+    @property
+    def mentioned_private_classes(self):
+        return [klass for klass in PRIVATE_CLASSES if klass in self.raw_doc]
+
+    @property
+    def examples_errors(self):
+        import spectrochempy
+
+        flags = doctest.NORMALIZE_WHITESPACE | doctest.IGNORE_EXCEPTION_DETAIL
+        finder = doctest.DocTestFinder()
+        runner = doctest.DocTestRunner(optionflags=flags)
+        context = {"np": numpy, "scp": spectrochempy}
+        error_msgs = ""
+        current_dir = set(os.listdir())
+        for test in finder.find(self.raw_doc, self.name, globs=context):
+            f = io.StringIO()
+            runner.run(test, out=f.write)
+            error_msgs += f.getvalue()
+        leftovers = set(os.listdir()).difference(current_dir)
+        if leftovers:
+            for leftover in leftovers:
+                path = pathlib.Path(leftover).resolve()
+                if path.is_dir():
+                    path.rmdir()
+                elif path.is_file():
+                    path.unlink(missing_ok=True)
+            raise Exception(
+                f"The following files were leftover from the doctest: "
+                f"{leftovers}. Please use # doctest: +SKIP",
+            )
+        return error_msgs
+
+    @property
+    def examples_source_code(self):
+        lines = doctest.DocTestParser().get_examples(self.raw_doc)
+        return [line.source for line in lines]
+
+    def validate_pep8(self):
+        if not self.examples:
+            return
+
+        # F401 is needed to not generate flake8 errors in examples
+        # that do not use numpy or spectrochempy
+        content = "".join(
+            (
+                "import numpy as np  # noqa: F401\n",
+                "import spectrochempy as scp  # noqa: F401\n",
+                *self.examples_source_code,
+            ),
+        )
+
+        error_messages = []
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as file:
+            file.write(content)
+            file.flush()
+            cmd = [sys.executable, "-m", "flake8", "--quiet", "--statistics", file.name]
+            response = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
+            stdout = response.stdout
+            stdout = stdout.replace(file.name, "")
+            messages = stdout.strip("\n")
+            if messages and messages != "0":
+                error_messages.append(messages)
+
+        for error_message in error_messages:
+            error_count, error_code, message = error_message.split(maxsplit=2)
+            yield error_code, message, int(error_count)
+
+    def non_hyphenated_array_like(self):
+        return "array_like" in self.raw_doc
+
+
+def _remove_errors(errs, errors=None):
+    if errors is None:
+        errors = []
+    dic_errs = dict(errs)
+    if not isinstance(errors, list):
+        errors = [errors]
+    for err in errors:
+        dic_errs.pop(err, None)
+    return list(dic_errs.items())
+
+
+def _scpy_numpydoc_validate(func_name, exclude=None):
+    """
+    Call the numpydoc validation, and add the errors specific to spectrochempy.
+
+    Parameters
+    ----------
+    func_name : str
+        Name of the object of the docstring to validate.
+    exclude : list
+        List of error code to exclude, e.g. ["SA01", ...].
+
+    Returns
+    -------
+    dict
+        Information about the docstring and the errors found.
+
+    """
+    if exclude is None:
+        exclude = []
+    func_obj = Validator._load_obj(func_name)
+    doc_obj = get_doc_object(func_obj)
+    doc = _DocstringValidator(func_name, doc_obj)
+    result = validate(doc_obj)
+    errs = result["errors"]
+
+    mentioned_errs = doc.mentioned_private_classes
+    if mentioned_errs:
+        errs.append(
+            _scpy_error(
+                "GL04",
+                mentioned_private_classes=", ".join(mentioned_errs),
+            ),
+        )
+
+    has_kwargs = doc.has_kwargs
+    if has_kwargs:
+        errs = _remove_errors(errs, "PR02")
+        if not doc.doc_other_parameters:
+            errs.append(_scpy_error("GL11"))
+
+    if doc.see_also:
+        for rel_name in doc.see_also:
+            if rel_name.startswith("spectrochempy."):
+                errs.append(
+                    _scpy_error(
+                        "SA05",
+                        reference_name=rel_name,
+                        right_reference=rel_name[len("spectrochempy.") :],
+                    ),
+                )
+
+    result["examples_errs"] = ""
+    if doc.examples:
+        result["examples_errs"] = doc.examples_errors
+        if result["examples_errs"]:
+            errs.append(
+                _scpy_error("EX02", doctest_log=result["examples_errs"]),
+            )
+
+        for error_code, error_message, error_count in doc.validate_pep8():
+            times_happening = f" ({error_count} times)" if error_count > 1 else ""
+            errs.append(
+                _scpy_error(
+                    "EX03",
+                    error_code=error_code,
+                    error_message=error_message,
+                    times_happening=times_happening,
+                ),
+            )
+        examples_source_code = "".join(doc.examples_source_code)
+        for wrong_import in ("numpy", "spectrochempy"):
+            if f"import {wrong_import}" in examples_source_code:
+                errs.append(_scpy_error("EX04", imported_library=wrong_import))
+
+    if doc.non_hyphenated_array_like():
+        errs.append(_scpy_error("GL05"))
+
+    # Handle docstrings that may not start with standard indentation
+    if error("GL01") in errs and not doc.raw_doc.startswith(""):
+        errs = _remove_errors(errs, "GL01")
+    if error("GL02") in errs and not doc.raw_doc.startswith(""):
+        errs = _remove_errors(errs, "GL02")
+
+    # case of properties (we accept a single line summary)
+    if hasattr(doc.code_obj, "fget"):
+        errs = _remove_errors(errs, "ES01")
+
+    # Apply exclude filter at the end
+    if exclude:
+        errs = _remove_errors(errs, exclude)
+
+    result["errors"] = errs
+    # Lazy import to avoid loading matplotlib at module import time
+    import matplotlib.pyplot as plt
+
+    plt.close("all")
+    if result["file"] is None and hasattr(doc.code_obj, "fget"):
+        # sometimes it is because the code_obj is a property
+        try:
+            result["file"] = inspect.getsourcefile(doc.code_obj.fget)
+            result["file_line"] = inspect.getsourcelines(doc.code_obj.fget)[-1]
+        except (OSError, TypeError):
+            pass
+
+    return result

@@ -1,0 +1,136 @@
+# ======================================================================================
+# Copyright (©) 2014-2026 Laboratoire Catalyse et Spectrochimie (LCS), Caen, France.
+# CeCILL-B FREE SOFTWARE LICENSE AGREEMENT
+# See full LICENSE agreement in the root directory.
+# ======================================================================================
+"""
+Setup script for matplotlib custom styles only.
+
+Note: Font installation has been removed. SpectroChemPy now relies on
+Matplotlib's built-in fonts.
+
+This module provides functionality to install custom matplotlib styles.
+Fonts are no longer bundled or installed by SpectroChemPy.
+"""
+
+import shutil
+import warnings
+from os import environ
+from pathlib import Path
+
+
+def is_on_github_actions():
+    """
+    Check if the code is running on GitHub Actions.
+
+    Returns
+    -------
+    bool
+        True if running on GitHub Actions, False otherwise.
+
+    """
+    required_vars = ["CI", "GITHUB_RUN_ID", "GITHUB_REPOSITORY"]
+    return all(var in environ and environ.get(var) for var in required_vars)
+
+
+def is_building_docs():
+    """
+    Detect whether we are running inside a documentation build.
+
+    (Sphinx / nbsphinx / ReadTheDocs / GitHub Actions docs job).
+    """
+    return any(
+        key in environ
+        for key in (
+            "READTHEDOCS",
+            "SPHINX_BUILD",
+            "DOCS_BUILDING",
+            "NBSPHINX_EXECUTE",
+        )
+    )
+
+
+def setup_mpl():
+    """
+    Install matplotlib styles for SpectroChemPy.
+
+    This function:
+    1. Checks the execution environment (local or GitHub Actions)
+    2. Verifies matplotlib installation
+    3. Installs custom stylesheets if not already present
+
+    Note: Font installation has been removed. SpectroChemPy now relies on
+    Matplotlib's built-in fonts.
+
+    Raises
+    ------
+    ImportError
+        If matplotlib is not installed
+    IOError
+        If source directories for styles are not found
+
+    """
+    # Check execution environment
+    GITHUB = is_on_github_actions()
+    DOCS = is_building_docs()
+
+    if GITHUB and not DOCS:
+        print("Running on GitHub Actions")  # noqa: T201
+
+    # Verify matplotlib installation
+    try:
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+    except ImportError:
+        warnings.warn(
+            "Sorry, but we cannot install mpl plotting styles "
+            "if MatPlotLib is not installed.\n"
+            "Please install MatPlotLib using:\n"
+            "  pip install matplotlib\n"
+            "or\n"
+            "  conda install matplotlib\n"
+            "and then install again.",
+            stacklevel=2,
+        )
+        return
+
+    # Setup paths for stylesheets
+    stylesheets = Path(__file__).parent.parent / "plotting" / "stylesheets"
+    if not stylesheets.exists():
+        raise OSError(
+            f"Can't find the stylesheets from SpectroChemPy {stylesheets!s}.\n"
+            f"Installation incomplete!",
+        )
+
+    # Ensure stylelib directory exists
+    cfgdir = Path(mpl.get_configdir())
+    stylelib = cfgdir / "stylelib"
+    if not stylelib.exists():
+        stylelib.mkdir()
+
+    if GITHUB and not DOCS:
+        print(f"MPL Configuration directory: {cfgdir}")  # noqa: T201
+        print(f"Stylelib directory: {stylelib}")  # noqa: T201
+
+    # Install stylesheets if needed
+    styles = list(stylesheets.glob("*.mplstyle"))
+    if not all((stylelib / src.name).exists() for src in styles):
+        print("Installing custom stylesheets...")  # noqa: T201
+        for src in styles:
+            dest = stylelib / src.name
+            shutil.copy(src, dest)
+            if dest.exists():
+                print(f"Stylesheet {src.name} installed successfully")  # noqa: T201
+            else:
+                print(f"Failed to install stylesheet {src.name}")  # noqa: T201
+
+        # Reload matplotlib style library
+        plt.style.reload_library()
+
+        if GITHUB:
+            print("\nAvailable stylesheets:")  # noqa: T201
+            print("\n".join(f"- {style}" for style in plt.style.available))  # noqa: T201
+
+
+if __name__ == "__main__":
+    setup_mpl()

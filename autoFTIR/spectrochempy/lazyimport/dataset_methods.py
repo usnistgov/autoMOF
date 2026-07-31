@@ -1,0 +1,118 @@
+# -*- coding: utf-8 -*-
+# ======================================================================================
+# Copyright (©) 2015-2023 LCS - Laboratoire Catalyse et Spectrochimie, Caen, France.
+# CeCILL-B FREE SOFTWARE LICENSE AGREEMENT
+# See full LICENSE agreement in the root directory.
+# ======================================================================================
+#
+# This file was generated for SpectroChemPy version: 0.7.3.dev10+g6b5d0168b.d20250313
+#
+#    ###################################################################################
+#    #           DO NOT MODIFY THIS FILE BECAUSE IT IS CREATED AUTOMATICALLY.          #
+#    #   ANY MODIFICATION OF THIS FILE WILL BE CANCELLED AFTER THE COMMIT IN GITHUB.   #
+#    ###################################################################################
+#
+#
+# ruff: noqa
+"""
+NDDataset methods from API.
+"""
+
+# --------------------------------------------------------------------------------------
+# API methods that are also NDDataset methods
+# --------------------------------------------------------------------------------------
+_LAZY_DATASETS_IMPORTS = {
+    "simps": "spectrochempy.analysis.integration.integrate",
+    "trapz": "spectrochempy.analysis.integration.integrate",
+    "simpson": "spectrochempy.analysis.integration.integrate",
+    "trapezoid": "spectrochempy.analysis.integration.integrate",
+    "find_peaks": "spectrochempy.analysis.peakfinding.peakfinding",
+    "sort": "spectrochempy.core.dataset.nddataset",
+    "squeeze": "spectrochempy.core.dataset.nddataset",
+    "swapdims": "spectrochempy.core.dataset.nddataset",
+    "transpose": "spectrochempy.core.dataset.nddataset",
+    "reshape": "spectrochempy.core.dataset.nddataset",
+    "to_array": "spectrochempy.core.dataset.nddataset",
+    "to_netcdf": "spectrochempy.core.dataset.nddataset",
+    "to_xarray": "spectrochempy.core.dataset.nddataset",
+    "take": "spectrochempy.core.dataset.nddataset",
+    "set_complex": "spectrochempy.core.dataset.nddataset",
+    "to": "spectrochempy.core.dataset.nddataset",
+    "to_base_units": "spectrochempy.core.dataset.nddataset",
+    "to_reduced_units": "spectrochempy.core.dataset.nddataset",
+    "ito": "spectrochempy.core.dataset.nddataset",
+    "ito_base_units": "spectrochempy.core.dataset.nddataset",
+    "ito_reduced_units": "spectrochempy.core.dataset.nddataset",
+    "is_units_compatible": "spectrochempy.core.dataset.nddataset",
+    "remove_masks": "spectrochempy.core.dataset.nddataset",
+    "plot_1D": "spectrochempy.plotting.plot1d",
+    "plot_pen": "spectrochempy.plotting.plot1d",
+    "plot_scatter": "spectrochempy.plotting.plot1d",
+    "plot_bar": "spectrochempy.plotting.plot1d",
+    "plot_multiple": "spectrochempy.plotting.plot1d",
+    "plot_scatter_pen": "spectrochempy.plotting.plot1d",
+    "plot_2D": "spectrochempy.plotting.plot2d",
+    "plot_contour": "spectrochempy.plotting.plot2d",
+    "plot_contourf": "spectrochempy.plotting.plot2d",
+    "plot_image": "spectrochempy.plotting.plot2d",
+    "plot_lines": "spectrochempy.plotting.plot2d",
+    "plot_map": "spectrochempy.plotting.plot2d",
+    "plot_stack": "spectrochempy.plotting.plot2d",
+    "plot_3D": "spectrochempy.plotting.plot3d",
+    "plot_surface": "spectrochempy.plotting.plot3d",
+    "plot_waterfall": "spectrochempy.plotting.plot3d",
+    "write": "spectrochempy.core.writers.exporter",
+    "write_csv": "spectrochempy.core.writers.write_csv",
+    "write_jcamp": "spectrochempy.core.writers.write_jcamp",
+    "write_matlab": "spectrochempy.core.writers.write_matlab",
+    "write_mat": "spectrochempy.core.writers.write_matlab",
+    "align": "spectrochempy.processing.alignement.align",
+    "ab": "spectrochempy.processing.baselineprocessing.baseline_deprecated",
+    "abc": "spectrochempy.processing.baselineprocessing.baseline_deprecated",
+    "get_baseline": "spectrochempy.processing.baselineprocessing.baselineprocessing",
+    "basc": "spectrochempy.processing.baselineprocessing.baselineprocessing",
+    "detrend": "spectrochempy.processing.baselineprocessing.baselineprocessing",
+    "asls": "spectrochempy.processing.baselineprocessing.baselineprocessing",
+    "snip": "spectrochempy.processing.baselineprocessing.baselineprocessing",
+    "rubberband": "spectrochempy.processing.baselineprocessing.baselineprocessing",
+    "em": "spectrochempy.processing.fft.apodization",
+    "gm": "spectrochempy.processing.fft.apodization",
+    "sp": "spectrochempy.processing.fft.apodization",
+    "sine": "spectrochempy.processing.fft.apodization",
+    "sinm": "spectrochempy.processing.fft.apodization",
+    "qsin": "spectrochempy.processing.fft.apodization",
+    "general_hamming": "spectrochempy.processing.fft.apodization",
+    "hamming": "spectrochempy.processing.fft.apodization",
+    "hann": "spectrochempy.processing.fft.apodization",
+    "triang": "spectrochempy.processing.fft.apodization",
+    "bartlett": "spectrochempy.processing.fft.apodization",
+    "blackmanharris": "spectrochempy.processing.fft.apodization",
+    "fft": "spectrochempy.processing.fft.fft",
+    "ifft": "spectrochempy.processing.fft.fft",
+    "mc": "spectrochempy.processing.fft.fft",
+    "ps": "spectrochempy.processing.fft.fft",
+    "ht": "spectrochempy.processing.fft.fft",
+    "pk": "spectrochempy.processing.fft.phasing",
+    "pk_exp": "spectrochempy.processing.fft.phasing",
+    "rs": "spectrochempy.processing.fft.shift",
+    "ls": "spectrochempy.processing.fft.shift",
+    "roll": "spectrochempy.processing.fft.shift",
+    "cs": "spectrochempy.processing.fft.shift",
+    "fsh": "spectrochempy.processing.fft.shift",
+    "fsh2": "spectrochempy.processing.fft.shift",
+    "dc": "spectrochempy.processing.fft.shift",
+    "zf_auto": "spectrochempy.processing.fft.zero_filling",
+    "zf_double": "spectrochempy.processing.fft.zero_filling",
+    "zf_size": "spectrochempy.processing.fft.zero_filling",
+    "zf": "spectrochempy.processing.fft.zero_filling",
+    "denoise": "spectrochempy.processing.filter.denoise",
+    "despike": "spectrochempy.processing.filter.denoise",
+    "savgol_filter": "spectrochempy.processing.filter.filter",
+    "savgol": "spectrochempy.processing.filter.filter",
+    "smooth": "spectrochempy.processing.filter.filter",
+    "whittaker": "spectrochempy.processing.filter.filter",
+    "interpolate": "spectrochempy.processing.interpolation.interpolate",
+    "autosub": "spectrochempy.processing.transformation.autosub",
+    "concatenate": "spectrochempy.processing.transformation.concatenate",
+    "stack": "spectrochempy.processing.transformation.concatenate",
+}

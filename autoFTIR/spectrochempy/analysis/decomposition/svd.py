@@ -1,0 +1,311 @@
+# ======================================================================================
+# Copyright (©) 2014-2026 Laboratoire Catalyse et Spectrochimie (LCS), Caen, France.
+# CeCILL-B FREE SOFTWARE LICENSE AGREEMENT
+# See full LICENSE agreement in the root directory.
+# ======================================================================================
+"""Implements the Singular Value Decomposition (SVD) class."""
+
+import numpy as np
+import traitlets as tr
+
+from spectrochempy.analysis._base._analysisbase import DecompositionAnalysis
+from spectrochempy.analysis._base._analysisbase import NotFittedError
+from spectrochempy.analysis._base._analysisbase import _wrap_ndarray_output_to_nddataset
+from spectrochempy.analysis._base._result import AnalysisResult
+
+__all__ = ["SVD"]
+__configurables__ = ["SVD"]
+
+
+# ======================================================================================
+# Utilities
+# ======================================================================================
+def _svd_flip(U, VT, u_based_decision=True):
+    """
+    Sign correction to ensure deterministic output from SVD.
+
+    Adjusts the columns of u and the rows of v such that the loadings in the
+    columns in u that are largest in absolute value are always positive.
+
+    Parameters
+    ----------
+    u_based_decision : boolean, (default=True)
+        If True, use the columns of u as the basis for sign flipping.
+        Otherwise, use the rows of v.
+
+    Notes
+    -----
+    Copied and modified from scikit-learn.utils.extmath (BSD 3 Licence)
+
+    """
+    if u_based_decision:
+        # columns of U, rows of VT
+        max_abs_cols = np.argmax(np.abs(U), axis=0)
+        signs = np.sign(U[max_abs_cols, range(U.shape[1])])
+        U *= signs
+        VT *= signs[:, np.newaxis]
+    else:
+        # rows of V, columns of U
+        max_abs_rows = np.argmax(np.abs(VT), axis=1)
+        signs = np.sign(VT[range(VT.shape[0]), max_abs_rows])
+        U *= signs
+        VT *= signs[:, np.newaxis]
+
+    return U, VT
+
+
+# ======================================================================================
+# class PCA
+# ======================================================================================
+class SVD(DecompositionAnalysis):
+    r"""
+    Singular Value Decomposition (SVD).
+
+    The SVD is commonly written as :math:`X = U \Sigma V^{T}`.
+
+    This class has the attributes : U, s = diag(S) and VT=V :math:`^T`.
+
+    If the dataset contains masked values, the corresponding ranges are
+    ignored in the calculation.
+
+    Parameters
+    ----------
+    log_level : any of [``"INFO"``, ``"DEBUG"``, ``"WARNING"``, ``"ERROR"``], optional, default: ``"WARNING"``
+        The log level at startup. It can be changed later on using the
+        `set_log_level` method or by changing the ``log_level`` attribute.
+    warm_start : `bool`, optional, default: `False`
+        When fitting repeatedly on the same dataset, but for multiple
+        parameter values (such as to find the value maximizing performance),
+        reuse the solution of the previous call to fit and add more components
+        (if available) in a sequential manner.
+
+        When `warm_start` is `True`, the existing fitted model attributes is used to
+        initialize the new model in a subsequent call to `fit`.
+
+    See Also
+    --------
+    fit : Fit the SVD model on X.
+    transform : Apply dimensionality reduction.
+    fit_transform : Fit the model and apply dimensionality reduction.
+
+    Examples
+    --------
+    >>> dataset = scp.read('irdata/nh4y-activation.spg')
+    >>> svd = scp.SVD()
+    >>> svd.fit(dataset)
+    <svd: U(55, 55), s(55), VT(55, 5549)>
+    >>> print(svd.ev.data)
+    [1.185e+04      634 ... 0.001089 0.000975]
+    >>> print(svd.ev_cum.data)
+    [   94.54     99.6 ...      100      100]
+    >>> print(svd.ev_ratio.data)
+    [   94.54    5.059 ... 8.687e-06 7.779e-06]
+
+    """
+
+    # ----------------------------------------------------------------------------------
+    # Configuration parameters
+    # ----------------------------------------------------------------------------------
+    full_matrices = tr.Bool(
+        default_value=False,
+        help="If False , U and VT have the shapes (M,  k) and (k, N), respectively, "
+        "where k = min(M, N). Otherwise the shapes will be (M, M) and (N, N), "
+        "respectively.",
+    ).tag(config=True)
+    compute_uv = tr.Bool(
+        default_value=True,
+        help="Whether or not to compute U and VT in addition to s.",
+    ).tag(config=True)
+
+    # ----------------------------------------------------------------------------------
+    # Initialization
+    # ----------------------------------------------------------------------------------
+    def __init__(
+        self,
+        *,
+        log_level="WARNING",
+        warm_start=False,
+        **kwargs,
+    ):
+        # call the super class for initialisation of the configuration parameters
+        # to do before anything else!
+        super().__init__(
+            log_level=log_level,
+            warm_start=warm_start,
+            **kwargs,
+        )
+
+    # ----------------------------------------------------------------------------------
+    # Private methods (overloading abstract classes)
+    # ----------------------------------------------------------------------------------
+    def _fit(self, X, Y=None):
+        # this method is called by the abstract class fit.
+        # Input X is a np.ndarray
+        # Y is ignored in this model
+        full_matrices = self.full_matrices
+        compute_uv = self.compute_uv
+        result = np.linalg.svd(X, full_matrices, compute_uv)
+        # Sign correction to ensure deterministic output from SVD.
+        # This doesn't work will full_matrices=True.
+        if compute_uv:
+            U, s, VT = result
+            if not full_matrices:
+                U, VT = _svd_flip(U, VT)
+            _outfit = (U, s, VT)
+        else:
+            # compute_uv=False: np.linalg.svd returns only the singular
+            # values vector s, not the (U, s, VT) tuple.  Normalise
+            # _outfit to a consistent (U, s, VT) tuple so that all
+            # downstream properties can safely index _outfit[0|1|2].
+            _outfit = (None, result, None)
+        return _outfit
+
+    # ----------------------------------------------------------------------------------
+    # special methods
+    # ----------------------------------------------------------------------------------
+    def __repr__(self):
+        if self.compute_uv:
+            U, s, VT = self._outfit
+            return f"<svd: U{U.shape}, s({s.size}), VT{VT.shape}>"
+        # _outfit is always a (U, s, VT) tuple after _fit normalisation
+        s = self._outfit[1]
+        return f"<svd: s({s.size}), U and VT not computed>"
+
+    # ----------------------------------------------------------------------------------
+    # Public method and properties
+    # ----------------------------------------------------------------------------------
+    def fit(self, X):
+        """
+        Fit the SVD model on X.
+
+        Parameters
+        ----------
+        X : `NDDataset` or :term:`array-like` of shape (:term:`n_observations`, :term:`n_features`)
+            Training data.
+
+        Returns
+        -------
+        self
+            The fitted SVD instance.
+
+        See Also
+        --------
+        fit_transform : Fit the model and apply dimensionality reduction.
+        transform : Apply dimensionality reduction.
+
+        """
+        return super().fit(X, Y=None)
+
+    @property
+    @_wrap_ndarray_output_to_nddataset(
+        units=None,
+        title="Singular values",
+        typesingle="components",
+    )
+    def singular_values(self):
+        """Return a NDDataset containing singular values."""
+        return self._outfit[1]
+
+    sv = singular_values
+
+    @property
+    def explained_variance(self):
+        """Return a NDDataset of the explained variance."""
+        size = self.sv.size
+        ev = self.sv**2 / (size - 1)
+        ev.name = "ev"
+        ev.title = "explained variance"
+        return ev
+
+    ev = explained_variance
+
+    @property
+    def explained_variance_ratio(self):
+        """Return Explained Variance per singular values."""
+        ratio = self.ev * 100.0 / np.sum(self.ev)
+        ratio.name = "ev_ratio"
+        ratio.title = "explained variance ratio"
+        ratio.units = "percent"
+        return ratio
+
+    ev_ratio = explained_variance_ratio
+
+    @property
+    def cumulative_explained_variance(self):
+        """Return Cumulative Explained Variance."""
+        ev_cum = np.cumsum(self.ev_ratio)
+        ev_cum.name = "ev_cum"
+        ev_cum.title = "cumulative explained variance"
+        ev_cum.units = "percent"
+        return ev_cum
+
+    ev_cum = cumulative_explained_variance
+
+    # TODO: return masked array for U,s,VT
+    @property
+    def U(self):
+        """
+        Return the left unitary matrix.
+
+        Its shape depends on `full_matrices` .
+        """
+        if self.compute_uv:
+            return self._outfit[0]
+        return None
+
+    @property
+    def VT(self):
+        """
+        Return a transpose matrix of the Loadings.
+
+        Its shape depends on `full_matrices`
+        """
+        if self.compute_uv:
+            return self._outfit[2]
+        return None
+
+    @property
+    def s(self):
+        """Return Vector of singular values ."""
+        return self._outfit[1]
+
+    @property
+    def result(self):
+        """
+        Return the SVD result object.
+
+        Returns
+        -------
+        AnalysisResult
+            Result object containing outputs (U, s, VT)
+            and diagnostics (singular_values, explained_variance,
+            explained_variance_ratio).
+        """
+        if not self._fitted:
+            raise NotFittedError(
+                "The fit method must be used before accessing the result",
+            )
+
+        # NOTE: a new AnalysisResult is created on every access.
+        # Caching is deliberately deferred to keep the implementation
+        # simple and aligned with the PCA result behaviour.
+
+        diagnostics = {
+            "singular_values": self.singular_values,
+            "explained_variance": self.explained_variance,
+            "explained_variance_ratio": self.explained_variance_ratio,
+        }
+
+        return AnalysisResult(
+            estimator="SVD",
+            parameters={
+                "full_matrices": self.full_matrices,
+                "compute_uv": self.compute_uv,
+            },
+            outputs={
+                "U": self.U,
+                "s": self.s,
+                "VT": self.VT,
+            },
+            diagnostics=diagnostics,
+        )

@@ -1,0 +1,21 @@
+{% set name = "spectrochempy_data" %}
+{% set version = 4 %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  path: ../
+
+build:
+  number: 0
+  noarch: generic
+
+about:
+  home: "https://github.com/spectrochempy/spectrochempy_data"
+  summary: "The data needed for running tests and examples in spectrochempy"
+
+extra:
+  recipe-maintainers:
+    - fernandezc

@@ -1,0 +1,89 @@
+/* 
+ * Arduino MKR Zero - Solenoid Control via Python
+ */
+
+const int RELAY_VALVE_1 = 0; 
+const int RELAY_VALVE_2 = 1; 
+const int PRESSURE_SWITCH_PIN = 4;
+
+const bool SWITCH_IS_NORMALLY_OPEN = false; 
+const int RELAY_ON = LOW;
+const int RELAY_OFF = HIGH;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(RELAY_VALVE_1, OUTPUT);
+  pinMode(RELAY_VALVE_2, OUTPUT);
+  digitalWrite(RELAY_VALVE_1, VALVE_CLOSED);
+  digitalWrite(RELAY_VALVE_2, VALVE_CLOSED);
+  pinMode(PRESSURE_SWITCH_PIN, INPUT_PULLUP);
+}
+
+void loop() {
+  handlePythonCommands();
+  handlePressureValve();
+}
+
+void handlePythonCommands() {
+  if (Serial.available() > 0) {
+    char cmd = Serial.read();
+    
+    if (cmd == '1') { // OPEN both valves
+      digitalWrite(RELAY_VALVE_1, VALVE_OPEN);
+      digitalWrite(RELAY_VALVE_2, VALVE_OPEN); 
+      Serial.println("MANUAL_OPEN_BOTH");
+    } 
+    else if (cmd == '0') { // CLOSE both valves
+      digitalWrite(RELAY_VALVE_1, VALVE_CLOSED);
+      digitalWrite(RELAY_VALVE_2, VALVE_CLOSED);
+      Serial.println("MANUAL_CLOSE_BOTH");
+    }
+    else if (cmd == 'T') { // TOGGLE both valves
+      int newState = (digitalRead(RELAY_VALVE_1) == VALVE_OPEN) ? VALVE_CLOSED : VALVE_OPEN;
+      digitalWrite(RELAY_VALVE_1, newState);
+      digitalWrite(RELAY_VALVE_2, newState);
+      Serial.println(newState == VALVE_OPEN ? "TOGGLE_OPEN_BOTH" : "TOGGLE_CLOSE_BOTH");
+    }
+    // Individual Commands
+    else if (cmd == 'A') { // Valve 1 Open
+      digitalWrite(RELAY_VALVE_1, VALVE_OPEN);
+      Serial.println("V1_OPEN");
+    }
+    else if (cmd == 'a') { // Valve 1 Close
+      digitalWrite(RELAY_VALVE_1, VALVE_CLOSED);
+      Serial.println("V1_CLOSED");
+    }
+    else if (cmd == 'B') { // Valve 2 Open
+      digitalWrite(RELAY_VALVE_2, VALVE_OPEN);
+      Serial.println("V2_OPEN");
+    }
+    else if (cmd == 'b') { // Valve 2 Close
+      digitalWrite(RELAY_VALVE_2, VALVE_CLOSED);
+      Serial.println("V2_CLOSED");
+    }
+  }
+}
+
+void handlePressureValve() {
+  bool rawRead = digitalRead(PRESSURE_SWITCH_PIN);
+  
+  // Determine if pressure is currently "High"
+  bool pressureTriggered = SWITCH_IS_NORMALLY_OPEN ? (rawRead == LOW) : (rawRead == HIGH);
+
+  if (pressureTriggered) {
+    // If pressure is high, Valve 2 MUST be open regardless of Valve 1
+    if (digitalRead(RELAY_VALVE_2) != VALVE_OPEN) {
+      digitalWrite(RELAY_VALVE_2, VALVE_OPEN);
+      Serial.println("ALARM_PRESSURE_HIGH_VALVE2_OPEN");
+    }
+  } else {
+    // If pressure is normal, Valve 2 follows the state of Valve 1
+    // This ensures that if you manually opened Valve 1, Valve 2 stays open.
+    // If you manually closed Valve 1, Valve 2 closes.
+    int valve1CurrentState = digitalRead(RELAY_VALVE_1);
+    if (digitalRead(RELAY_VALVE_2) != valve1CurrentState) {
+      digitalWrite(RELAY_VALVE_2, valve1CurrentState);
+      Serial.println("PRESSURE_NORMAL_VALVE2_FOLLOWING_VALVE1");
+    }
+  }
+}
