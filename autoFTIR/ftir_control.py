@@ -18,12 +18,8 @@ valve = ModularUniversalActuator(port = 'COM6')
 #ard = SolenoidController(port = 'COM8')
 auto = AutoClicker()
 
-
-
-
-
-def co2_measure_test():
-    print(f'[CO2 Level] {gas.get_co2_reading()} umol/mol') 
+# def co2_measure_test():
+#     print(f'[CO2 Level] {gas.get_co2_reading()} umol/mol') 
 
 
 def mfc_test():
@@ -44,24 +40,15 @@ def valve_test_a():
     valve.move_to_a()
 
 # Clicker Test:
-# Run as is, then take out time sleep and see if works. use convert_test?
 def clicker_test():
     auto.setup_coordinates()
     conv.start_workflow(auto)
     print("Workflow active. Waiting for CSVs to trigger measurements...")
     auto.click_bg()
     
-    #time.sleep(10)
-    #spa.verify_csv_created()
-        # Convert spa to csv
-        # Detect the csv/that the spa has been converted
-        # That triggers the measurement
-        # Detect csv/convert
-    #auto.click_meas()
-    #time.sleep(10)
-    #spa.verify_csv_created()
+    
 
-
+# Test for programatic workflow. Autoclicks and handles data conversion.
 def convert_test(n=3, s=3):
     auto.setup_omnic()
     auto.setup_autopro()
@@ -163,6 +150,7 @@ def co2_step(t0=10, n=3, s=4, tf= 100, cf0=1, pret=600, pref=100, h=10, m=5): #s
         print(f"--- Step {i} ---")
         while m > 0:
             print(f"{m} Measurements left for Step {i}")
+            #Reset Background
             time.sleep(t0) # add in -9??
             auto.click_expt_set()
             time.sleep(3)
@@ -170,10 +158,13 @@ def co2_step(t0=10, n=3, s=4, tf= 100, cf0=1, pret=600, pref=100, h=10, m=5): #s
             time.sleep(3)
             auto.click_ok()
             time.sleep(3)
+            # Take Background and wait for file to save
             auto.click_bg()
             while conv_handler.last_csv_created is None:
                 time.sleep(1)
             conv_handler.last_csv_created = None
+            # Take Measurement and wait for file to save
+            # Twice because sometimes it needs a double click to register
             auto.click_meas()
             auto.click_meas()
             files_converted = 0
@@ -228,13 +219,29 @@ def co2_bar(t0=10, n=3, tf=100, cf0=1, pret=600, h=10, st=10):
         time.sleep(st)
         print(f'[CO2 Level] {gas.get_co2_reading()} umol/mol')
         #autoclicker
+        auto.click_expt_set()
+        time.sleep(3)
+        auto.click_after_mins()
+        time.sleep(3)
+        auto.click_ok()
+        time.sleep(3)
+        # Take Background and wait for file to save
         auto.click_bg()
-        time.sleep(10)
-        spa.on_created()
+        while conv_handler.last_csv_created is None:
+            time.sleep(1)
+        conv_handler.last_csv_created = None
+        # Take Measurement and wait for file to save
+        # Twice because sometimes it needs a double click to register
         auto.click_meas()
-        time.sleep(10)
-        spa.on_created()
-
+        auto.click_meas()
+        files_converted = 0
+        while files_converted < s:
+            if conv_handler.last_csv_created is not None:
+                files_converted += 1
+                print(f"Measurement CSV {files_converted} of {s} detected!")
+                conv_handler.last_csv_created = None
+            else:
+                time.sleep(1)
         cf0 += h
         mfc.set_flow('n2', tf-cf0)
         mfc.set_flow('co2', cf0)

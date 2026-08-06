@@ -35,7 +35,7 @@ class ModularUniversalActuator:
     # --- Two Position Mode Commands ---
 
     def move_to_b(self):
-        """Sends actuator from Position A to Position B [1].""" #Alicat(CO2) in
+        """Sends actuator from Position A to Position B [1].""" #Alicat(CO2+N2) in
         print("Moving to Position B...")
         return self.send_command("CC") 
 

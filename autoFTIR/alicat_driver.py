@@ -1,10 +1,13 @@
 import serial
 import time
 
+# Driver for alicat MFCs. Uses a dictionary to map gas names to device IDs. 
+# Max flowrate for pure_n2 is 1 sccm.
 device_dict = {'co2': 'A', 'water': 'B', 'n2': 'C', 'pure_n2': 'D'}
 
+
 class AlicatController:
-    def __init__(self, port, baudrate=19200, timeout=1):
+    def __init__(self, port, baudrate=19200, timeout=.1):
         """
         Initialize connection to Alicat MFCs via BB9 Hub.
         Default Alicat baudrate is typically 19200.
@@ -27,6 +30,7 @@ class AlicatController:
         response = self.ser.readline().decode('ascii').strip()
         return response
 
+
     def set_flow(self, gas_name, flow_rate):
         """
         Sets the flow rate for a specific device.
@@ -42,16 +46,6 @@ class AlicatController:
             print(f"[{gas_name.upper()}] Mass Flow set to: {flow_rate}")
             return self.send_command(cmd)
         else: 
-            return "Error: Gas name not found in dictionary"
-    
-    def set_press(self, gas_name, pressure):
-        device_id=device_dict.get(gas_name.lower())
-
-        if device_id:
-            cmd = f"{device_id}P{pressure}"
-            print(f"[{gas_name.upper()}] Pressure set to : {pressure}")
-            return self.send_command(cmd)
-        else:
             return "Error: Gas name not found in dictionary"
 
     def get_flow(self, gas_name):
@@ -82,6 +76,27 @@ class AlicatController:
         else:
             return "Error: Gas name not found in dictionary"
 
+    def get_press(self, gas_name):
+        """Reads the current pressure from a specific device."""
+        device_id=device_dict.get(gas_name.lower())
+
+        if device_id:
+            cmd = f"{device_id}"
+            response = self.send_command(cmd)
+            try:
+                parts = response.split()
+                if len(parts) >= 5:
+                    pressure = float(parts[1])
+                    print(f"[{gas_name.upper()}] Current Pressure: {pressure}")
+                    return pressure
+                else:
+                    print("DEBUG: Response too short to parse")
+                    return None
+            except (ValueError, IndexError) as e:
+                print(f"DEBUG: Parsing failed due to: {e}")
+                return None
+        else:
+            return "Error: Gas name not found in dictionary"
     def close(self):
         self.ser.close()
 

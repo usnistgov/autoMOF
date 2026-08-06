@@ -1,6 +1,8 @@
 import pyautogui
 import time
 
+# Code to set up coordinates for autoclicking positions. 
+
 class AutoClicker:
     def __init__(self):
          self.button_measure = None
@@ -72,7 +74,7 @@ class AutoClicker:
 # Example: Accessing X and Y individually
 #print(f"The X coordinate of Point A is: {point_a.x}")
 
-
+    # Test loop for autoclicker
     def run_clicker(self,n=2, i=1):
         if self.button_measure is None or self.button_background is None:
              print("Coordinates not set! Please run setup_coordinates() first.")

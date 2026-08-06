@@ -1,3 +1,5 @@
+// Old version for solenoid control, pairs with solenoid control.py
+
 int x;
 int relay_1 = 1;
 int relay_2 = 2;
