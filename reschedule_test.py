@@ -47,7 +47,7 @@ print(f"Elapsed time for scheduling: {elapsed_time:.6f} seconds")
 
 unit_ops_df = interleave_reactor_preheating(unit_ops_df, 5)
 
-write_directory = "C:/Users/asm6/Documents/autoMOF_orchetrator/" 
+write_directory = "." 
 suffix = "initial_batch"
 fig1, fig2, fig3 = plot_gantt_chart(unit_ops_df, True, write_directory, suffix)
 fig1.show()
@@ -100,7 +100,7 @@ print(f"Elapsed time for re-scheduling: {elapsed_time:.6f} seconds")
 
 next_batch_ops_df = interleave_reactor_preheating(next_batch_ops_df, 5)
 
-write_directory = "C:/Users/asm6/Documents/autoMOF_orchetrator/"
+write_directory = "."
 suffix = "re-schedule"
 fig1a, fig2a, fig3a = plot_gantt_chart(next_batch_ops_df, True, write_directory, suffix)
 fig1a.show()
