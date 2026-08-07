@@ -14,12 +14,9 @@ from vacuumPy import SolenoidController
 
 
 valve = ModularUniversalActuator(port = 'COM6')
-#mfc = AlicatController (port = 'COM5')
-#ard = SolenoidController(port = 'COM8')
+mfc = AlicatController (port = 'COM5')
+ard = SolenoidController(port = 'COM8')
 auto = AutoClicker()
-
-# def co2_measure_test():
-#     print(f'[CO2 Level] {gas.get_co2_reading()} umol/mol') 
 
 
 def mfc_test():
@@ -94,47 +91,50 @@ def setup():
     gas.config()
     conv.start_workflow()
 
-#relay 1 = 
-#realay 2 = 
-#tv = time vacuum
-def vacuum_on():
-    #turn on vaccum manually
-    ard.set_front_vacuum()
-    ard.set_back_closed()
 
-def vaccum_off():
-    #turn off vacuum manually
-    ard.set_front_gas()
-    triggered = False
-    while not triggered:
-        alert = ard.check_for_alerts()
-        if alert == "PRESSURE_TRIGGERED":
-            print("Pressure switch triggered. Opening valve 2.")
-            triggered = True
-    ard.set_back_open()
-    print("Valve 2 Opened")
-
-
-
-# t0 = time per step
-# n = number of steps
-# s = number of active wells (including background)
-# tf = total flow (co2 + n2)
-# cf0 = initial flow co2
-# pret = time for n2 to flush system
-# h = step size
-# m = # of measurements per step
 
 def co2_step(t0=10, n=3, s=4, tf= 100, cf0=1, pret=600, pref=100, h=10, m=5): #step function
+    """ 
+    FTIR CONTROL FUNCTION: 
+    This is the main control function for the FTIR process. 
+    The main loop waits t0 seconds
+    clears the background
+    takes a background measurement
+    takes a measurement for each of the s active wells
+    once all measuremnts are taken for a step, step up flow of co2
+    repeat until all steps are taken
+
+    Parameters
+    ----------
+
+    t0: int
+     time per step
+    n: int
+     number of steps
+    s: int
+     number of active wells (including background)
+    tf: int
+     total flow (co2 + n2)
+    cf0: int
+     initial flow co2
+    pret: int
+     time for n2 to flush system
+    h: int
+     step size
+    m: int
+     # of measurements per step
+
+    """
     #Clicker Setup
     auto.setup_omnic()
     auto.setup_autopro()
+    # File detector starts observing
     conv_handler, observer = conv.start_workflow(auto)
     #Start gas data collection
     start_server()
     #Gas setup
     
-    valve.move_to_a() #mks in
+    valve.move_to_a() #mks (pure_n2) in
     time.sleep(2)
     mfc.set_flow('n2', tf-cf0) 
     mfc.set_flow('co2', cf0) 
@@ -143,7 +143,7 @@ def co2_step(t0=10, n=3, s=4, tf= 100, cf0=1, pret=600, pref=100, h=10, m=5): #s
     mfc.set_flow('pure_n2', pref)
     print(mfc.get_flow('pure_n2'))
     time.sleep(pret) 
-    valve.move_to_b() # alicat in
+    valve.move_to_b() # alicat (CO2 and N2 mix)
 
     i = 1
     while n > 0:
@@ -151,7 +151,7 @@ def co2_step(t0=10, n=3, s=4, tf= 100, cf0=1, pret=600, pref=100, h=10, m=5): #s
         while m > 0:
             print(f"{m} Measurements left for Step {i}")
             #Reset Background
-            time.sleep(t0) # add in -9??
+            time.sleep(t0) 
             auto.click_expt_set()
             time.sleep(3)
             auto.click_after_mins()
@@ -190,15 +190,46 @@ def co2_step(t0=10, n=3, s=4, tf= 100, cf0=1, pret=600, pref=100, h=10, m=5): #s
         stop_server()
         mfc.set_flow('co2', 0)
         mfc.set_flow('n2', 0)
+        mfc.set_flow('pure_n2', 0)
 
-#Set flow A
-#check concentration
-#wait t0
-#set flow 0
-# measure final concentration
-# start flow at next concentration (+h)
+
 
 def co2_bar(t0=10, n=3, tf=100, cf0=1, pret=600, h=10, st=10):
+    """
+    CO2 Bar Function:
+
+    Set flow A
+    check concentration
+    wait t0
+    set flow 0
+    measure final concentration
+    start flow at next concentration (+h)
+
+    Parameters
+    ----------
+    t0: int
+        time per step
+    n: int
+        number of steps 
+    tf: int
+        total flow (co2 + n2)
+    cf0: int
+        initial flow co2
+    pret: int
+        time for n2 to flush system
+    h: int
+        step size
+    st: int
+        wait time after setting CO2 flow to zero but before taking measurement
+
+    """
+    auto.setup_omnic()
+    auto.setup_autopro()
+        # File detector starts observing
+    conv_handler, observer = conv.start_workflow(auto)
+        #Start gas data collection
+    start_server()
+    
     valve.move_to_a()
     time.sleep(2)
     mfc.set_flow('n2', tf-cf0) 
@@ -217,7 +248,7 @@ def co2_bar(t0=10, n=3, tf=100, cf0=1, pret=600, h=10, st=10):
         print(mfc.get_flow('co2'))
         print(mfc.get_flow('n2'))
         time.sleep(st)
-        print(f'[CO2 Level] {gas.get_co2_reading()} umol/mol')
+        
         #autoclicker
         auto.click_expt_set()
         time.sleep(3)
@@ -252,9 +283,8 @@ def co2_bar(t0=10, n=3, tf=100, cf0=1, pret=600, h=10, st=10):
 
     else:
         valve.move_to_a()
+        stop_server()
         mfc.set_flow('co2', 0)
         mfc.set_flow('n2', 0)
+        mfc.set_flow('pure_n2', 0)
 
-# Sila logic
-# Start collecting data at commands start
-# Align realtime to experiment time to align measurements
