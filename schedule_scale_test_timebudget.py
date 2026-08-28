@@ -46,5 +46,5 @@ for i in range(1,21):
     print(results[i])
 
 
-    with open("performance_table.json", "w") as json_file:
+    with open("performance_table_tb.json", "w") as json_file:
         json.dump(results, json_file)
