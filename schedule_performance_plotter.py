@@ -144,6 +144,7 @@ fig.update_yaxes(title_text="Scheduled Time (das)", row=1, col=2)
 fig.update_yaxes(title_text="Speedup", row=1, col=3)
 
 fig.show()
+fig.write_image("schedule_scale_plot.svg",  width=1248, height=450)
 
 print("total compute, das", np.sum(das_compute_times))
 print("total compute, hs", np.sum(hs_compute_times))
