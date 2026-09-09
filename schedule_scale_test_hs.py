@@ -9,11 +9,11 @@ pd.set_option('display.width', 1000)
 import numpy as np
 import json
 
-from src.op_scheduler import create_unit_ops_df, assign_reactors, solve_job_shop_schedule, interleave_reactor_preheating
+from src.op_scheduler_hs import create_unit_ops_df, assign_reactors, solve_job_shop_schedule, interleave_reactor_preheating
 from src.experiments import Ternary_colordemo, Cu_BTC
 from src.schedule_plotter import plot_gantt_chart
 
-from src.op_scheduler import add_unit_ops_resource_collumn
+from src.op_scheduler_hs import add_unit_ops_resource_collumn
 
 
 seed = 42
@@ -41,10 +41,10 @@ for i in range(1,21):
     elapsed_time = end_time - start_time
 
     results[i] = {"Time to compute (s)": elapsed_time,
-                    "Naive time (Ds)": unit_ops_df["Duration (Ds)"].sum(),
-                    "Scheduled time (Ds)": unit_ops_df["End Time (Ds)"].to_numpy()[-1]}
+                    "Naive time (hs)": unit_ops_df["Duration (hs)"].sum(),
+                    "Scheduled time (hs)": unit_ops_df["End Time (hs)"].to_numpy()[-1]}
     print(results[i])
 
 
-    with open("performance_table_das.json", "w") as json_file:
+    with open("performance_table_hs.json", "w") as json_file:
         json.dump(results, json_file)

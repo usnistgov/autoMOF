@@ -1,5 +1,5 @@
 import time
-
+import time
 
 import pandas as pd
 pd.set_option('display.max_rows', 500)
@@ -9,11 +9,11 @@ pd.set_option('display.width', 1000)
 import numpy as np
 import json
 
-from src.op_scheduler import create_unit_ops_df, assign_reactors, solve_job_shop_schedule, interleave_reactor_preheating
+from src.op_scheduler_timebudget import create_unit_ops_df, assign_reactors, solve_job_shop_schedule, interleave_reactor_preheating
 from src.experiments import Ternary_colordemo, Cu_BTC
 from src.schedule_plotter import plot_gantt_chart
 
-from src.op_scheduler import add_unit_ops_resource_collumn
+from src.op_scheduler_timebudget import add_unit_ops_resource_collumn
 
 
 seed = 42
@@ -46,5 +46,5 @@ for i in range(1,21):
     print(results[i])
 
 
-    with open("performance_table_das.json", "w") as json_file:
+    with open("performance_table_tb.json", "w") as json_file:
         json.dump(results, json_file)
