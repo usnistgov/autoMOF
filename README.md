@@ -12,7 +12,8 @@ These are then executed using a system of status dependencies for each sample an
 For the implementation of the autonomous scheduler see [op_scheduler](./src/op_scheduler.py)
 For the implementation of the system of dependencies and mutexes see [unit_operation](./src/unit_operation.py) for the sample-wise UnitOPs, and [system_db_setup](./src/system_db_setup.py) for the mutexes associated with the physical resources of the robotic platform. 
 
-For the manuscript describing the use of this code base see: ["Optimal Resource Utilization for Autonomous Laboratory Orchestrators"](https://arxiv.org/abs/2607.01188)
+For the manuscript describing the use of this code base see: ["Optimal Resource Utilization for Autonomous Laboratory Orchestrators"](https://arxiv.org/abs/2607.01188).
+For the pinned version of the codebase used in that manuscript see [release v0.0.2](https://github.com/usnistgov/autoMOF/releases/tag/v0.0.2).
 Running [reschedule_test.py](https://github.com/usnistgov/autoMOF/blob/main/reschedule_test.py) will generate an example schedule of experiments, then it will generate an example of re-scheduling by introducing a new set of jobs and the remaining tasks of the previous jobs. 
 The associated Gantt charts created in that script were used in Figure 1 and 2 of the manuscript for example scheduling and re-scheduling, respectively.
 Running [schedule_scale_run.sh](https://github.com/usnistgov/autoMOF/blob/main/schedule_scale_run.sh) will run tests to show how the compute time for the schedule scales with the number of samples. 
