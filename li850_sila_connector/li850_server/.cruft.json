@@ -1,0 +1,31 @@
+{
+  "template": "https://gitlab.com/unitelabs/cdk/connector-factory.git",
+  "commit": "c48304a91fd7bc838d6bd04c725dd5a3a74e8512",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "connector_name": "li850",
+      "project_name": "automof-li850-connector",
+      "package_name": "automof_li850_connector",
+      "__package_import_name": "unitelabs.automof_li850_connector",
+      "__protocol_name": "AutomofLi850Connector",
+      "project_description": "Now without WSL!",
+      "author_full_name": "Suerken Matsuyama",
+      "author_email": "suerken.matsuyama@nist.gov",
+      "project_repo": "https://github.com/SuerkenMatsuyama/autoMOF-li850-connector.git",
+      "communication_type": "serial",
+      "env": "uv",
+      "_render_devdocs": false,
+      "_jinja2_env_vars": {
+        "lstrip_blocks": true,
+        "trim_blocks": true
+      },
+      "_extensions": [
+        "internal_ext.IsInternalExtension"
+      ],
+      "_template": "https://gitlab.com/unitelabs/cdk/connector-factory.git",
+      "_commit": "c48304a91fd7bc838d6bd04c725dd5a3a74e8512"
+    }
+  },
+  "directory": null
+}
