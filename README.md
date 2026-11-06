@@ -30,7 +30,7 @@ These scripts were used to generate the results shown in the Schedule Performanc
 
 ## Development
 
-This code base is under active development
+This code base is under active development. This code is being modified to incorperate SQL data storage using SQLModel.
 
 ## Coorespondence 
 Austin McDannald \
