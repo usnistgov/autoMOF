@@ -2,3 +2,10 @@
 # Images
 # ==========================================
 *.svg
+
+# Virtual environments
+.venv
+
+# Uv Files
+pyproject.toml
+uv.lock
