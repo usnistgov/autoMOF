@@ -1,9 +1,9 @@
 import numpy as np
 import MOF_SQL_Tables as mst
-import system_db_setup
+import src.system_db_setup
 from sqlmodel import Session, select
 from sqlalchemy import func # For getting max and min values from a table
-from experiments import Cu_BTC
+from src.experiments import Cu_BTC
 
 CAMPAIGN_ID = "Campaign 1"
 BATCH_ID = "Batch 1"
