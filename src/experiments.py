@@ -1,8 +1,8 @@
 import numpy as np
 
 # from drmxlt_MOF.ternary_composition_utils import random_ternary_composition
-from .ternary_composition_utils import random_ternary_composition, generate_simplex_grid
-from .op_scheduler import create_unit_ops_df, assign_reactors, solve_job_shop_schedule
+from src.ternary_composition_utils import random_ternary_composition, generate_simplex_grid
+from src.op_scheduler import create_unit_ops_df, assign_reactors, solve_job_shop_schedule
 
 class Experiment():
     """"Base class for all experiments"""

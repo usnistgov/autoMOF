@@ -1,5 +1,5 @@
-from .pipette_traking import *
-from .vial_tracking import *
+from src.pipette_traking import *
+from src.vial_tracking import *
 
 from time import sleep
 import asyncio
