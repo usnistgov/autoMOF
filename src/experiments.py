@@ -334,8 +334,8 @@ class Cu_BTC(Experiment):
         Cu_concentrations = np.random.uniform(min_Cu_concentration, max_Cu_concentration, self.initial_samples)
         
         for key, Cu_conc in zip(self.sample_db.keys(), Cu_concentrations):
-            self.sample_db[key]["Target Cu Concentration (mol/L)"] = Cu_conc
-            self.sample_db[key]["Target BTC Concentration (mol/L)"] = 0.2
+            self.sample_db[key]["Target Cu Solution Concentration (mol/L)"] = Cu_conc
+            self.sample_db[key]["Target BTC Solution Concentration (mol/L)"] = 0.2
         #TODO: push sample db to Cordra
 
     def define_experiment_conditions(self):
@@ -351,8 +351,8 @@ class Cu_BTC(Experiment):
 
             exp_volumes = {}
             
-            target_BTC_concentration = self.sample_db[key]["Target BTC Concentration (mol/L)"]
-            target_Cu_concentration = self.sample_db[key]["Target Cu Concentration (mol/L)"]
+            target_BTC_concentration = self.sample_db[key]["Target BTC Solution Concentration (mol/L)"]
+            target_Cu_concentration = self.sample_db[key]["Target Cu Solution Concentration (mol/L)"]
 
             stock_BTC_concentration = self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
             stock_Cu_concentration = self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
@@ -394,8 +394,8 @@ class Cu_BTC(Experiment):
 
             exp_volumes = {}
             
-            target_BTC_concentration = self.sample_db[key]["Target BTC Concentration (mol/L)"]
-            target_Cu_concentration = self.sample_db[key]["Target Cu Concentration (mol/L)"]
+            target_BTC_concentration = self.sample_db[key]["Target BTC Solution Concentration (mol/L)"]
+            target_Cu_concentration = self.sample_db[key]["Target Cu Solution Concentration (mol/L)"]
 
             stock_BTC_concentration = self.fluid_db["BTC Solution"]["Concentration (mol/L)"]
             stock_Cu_concentration = self.fluid_db["Cu Solution"]["Concentration (mol/L)"]
@@ -428,7 +428,7 @@ class Cu_BTC(Experiment):
         #TODO: push sample db to Cordra
     
     def find_compositions(self, Sample_ID):
-        return self.sample_db[Sample_ID]["Target Cu Concentration (mol/L)"]
+        return self.sample_db[Sample_ID]["Target Cu Solution Concentration (mol/L)"]
     
 
     def initialize_fluid_db(self):

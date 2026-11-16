@@ -77,7 +77,7 @@ def reactor_use_assignment(reactor_df, number_of_reactors, positions_in_reactor)
 
   return reactor_df
 
-def assign_reactors(unit_ops_df, number_of_reactors, positions_in_reactor):
+def assign_reactors(unit_ops_df, number_of_reactors, positions_in_reactor, batch):
   """
   Read the unit operations dataframe and assign reactor IDs to each react operation
 
@@ -127,6 +127,9 @@ def assign_reactors(unit_ops_df, number_of_reactors, positions_in_reactor):
   for duration in total_react_duration:
     list_of_react_durations.append([duration])
 
+  # Assign each reactor to the batch.
+  batch_ids = np.full(len(unique_temperatures), batch)
+
   #Initiallize a reaction dataframe
   reactor_df = pd.DataFrame()
   reactor_df["Reactor"] = reactors_required
@@ -138,6 +141,7 @@ def assign_reactors(unit_ops_df, number_of_reactors, positions_in_reactor):
   reactor_df['Reactor Use (Ds)'] = reactor_df['Reactor Use (Ds)'].astype("object")
   reactor_df['Reactor Temperature (C)'] = reactor_df['Reactor Temperature (C)'].astype("object")
 
+  reactor_df['Batch Number'] = batch_ids
 
 
   #Configure the reactor use
@@ -225,7 +229,8 @@ def create_unit_ops_df(sample_db,
                        Dry = True,
                        Centrifuge = False,
                        Remove_supernatent = False,
-                       Sonicate = False):
+                       Sonicate = False, 
+                       batch= 0):
 
     """
     Function for creating a DataFrame of the Unit Ops and sub_unit ops
@@ -269,48 +274,48 @@ def create_unit_ops_df(sample_db,
     """
 
 
-    header = ["Sample Name", "UnitOP", "Duration (Ds)", "Reactor", "Reactor Temperature (C)"]
+    header = ["Sample Name", "UnitOP", "Duration (Ds)", "Reactor", "Reactor Temperature (C)", "Batch Number"]
     unit_ops_df = pd.DataFrame(columns = header)
     for key in sample_db.keys():
         
         if Add_fluids == True:
-            sub_df = pd.DataFrame([[key, "add_fluids", 2*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "add_fluids", 2*6, None, 0, batch]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
         if React == True:
             temp = sample_db[key]["Temperature (C)"] 
             time = sample_db[key]["Reaction Time (min)"] 
 
-            sub_df = pd.DataFrame([[key, "react", time*6, None, temp]], columns = header)
+            sub_df = pd.DataFrame([[key, "react", time*6, None, temp, batch]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
         for i in range(Wash_Cycles):
-            sub_df = pd.DataFrame([[key, f"centrifuge_{i}", 40*6, None, 0],
-                                   [key, f"rm_supernatent_{i}", 2*6, None, 0],
-                                   [key, f"add_solvents_{i}", 2*6, None, 0],
-                                   [key, f"sonicate_{i}", 60*6, None, 0],
-                                   [key, f"rack_hold_{i}", 24*60*6, None, 0]], 
+            sub_df = pd.DataFrame([[key, f"centrifuge_{i}", 40*6, None, 0, batch],
+                                   [key, f"rm_supernatent_{i}", 2*6, None, 0, batch],
+                                   [key, f"add_solvents_{i}", 2*6, None, 0, batch],
+                                   [key, f"sonicate_{i}", 60*6, None, 0, batch],
+                                   [key, f"rack_hold_{i}", 24*60*6, None, 0, batch]], 
                                    columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
         if Dry == True:
-            sub_df = pd.DataFrame([[key, f"centrifuge_{0+Wash_Cycles}", 40*6, None, 0],
-                                   [key, f"rm_supernatent_{0+Wash_Cycles}", 2*6, None, 0],
-                                   [key, "dry", 24*60*6, None, 100]], 
+            sub_df = pd.DataFrame([[key, f"centrifuge_{0+Wash_Cycles}", 40*6, None, 0, batch],
+                                   [key, f"rm_supernatent_{0+Wash_Cycles}", 2*6, None, 0, batch],
+                                   [key, "dry", 24*60*6, None, 100, batch]], 
                                    columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
            
 
         if Centrifuge == True:
-            sub_df = pd.DataFrame([[key, "centrifuge", 40*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "centrifuge", 40*6, None, 0, batch]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
         if Remove_supernatent == True:
-            sub_df = pd.DataFrame([[key, "rm_supernatent", 2*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "rm_supernatent", 2*6, None, 0, batch]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
         
         if Sonicate == True:
-            sub_df = pd.DataFrame([[key, "sonicate", 60*6, None, 0]], columns = header)
+            sub_df = pd.DataFrame([[key, "sonicate", 60*6, None, 0, batch]], columns = header)
             unit_ops_df = pd.concat([unit_ops_df, sub_df])
 
     unit_ops_df["Status"] = "To Do"

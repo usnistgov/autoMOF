@@ -39,7 +39,7 @@ reactor = {}
 
 for i in range(num_reactors):
   reactor[i] = {"Block ID": i,
-                     "Temperature (C)": None,
+                     # "Temperature (C)": None,
                      "Hat Status": "Off"}
 
   for j in range(positions_per_reactor):

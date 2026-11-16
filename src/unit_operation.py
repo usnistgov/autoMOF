@@ -348,51 +348,6 @@ async def pre_heat_dependancy(reactor, target_temperature, experiment):
     ready = pre_heat_dependency_check(reactor, target_temperature, experiment)
   return ready
 
-
-async def pre_heat_monitor(reactor, target_temperature, experiment, system_db, t, tolerance = 5.0):
-  """
-  Asynchronous Function for monitoring the status of a pre_heat step.
-  
-  Parameters
-  ----------
-  reactor : int
-    Index of which reactor block to query 
-  target_temperature : float
-    Target temperature of this pre_heat task in degrees C
-  experiment : Experiment
-    A Experiment object that contains all the information unique to this experiment.
-  t : NorthC9
-    NorthC9 object for temperature control
-  system_db : dict (-like)
-      Database that tracks all the status of all components of the system
-  tolerance : float
-    Tolerance on difference between measured temperature and target temperature to pass, in degreees C
-
-  Returns
-  -------
-  experiment : Experiment
-    A Experiment object with updated unit_ops_df status table.
-  """
-
-  completed = False
-  while completed == False:
-    
-    await asyncio.sleep(1)
-
-    current_temp = read_temperature(t, reactor)
-    print(f"Pre_heat monitor current_temp {current_temp}")
-    
-    experiment = update_unit_op_preheat_status(reactor, target_temperature, experiment, t, tolerance)
-
-    #update system_db
-    system_db['reactor'][reactor]["Temperature (C)"] = current_temp
-
-    completed = unit_op_preheat_status(reactor, target_temperature, experiment, tolerance = tolerance)
-
-  return experiment
-
-
-
 def add_fluids_dependancy_check(Sample_ID, experiment):
   """
   Function for querying all the conditions for a add_fluids step.
@@ -1054,7 +1009,7 @@ async def Start_reaction(op_df_index, Sample_ID, c, t, system_db, experiment, en
   sub_df = experiment.unit_ops_df[experiment.unit_ops_df["Sample Name"] == Sample_ID]
   sub_sub_df = sub_df[sub_df["UnitOP"] == "react"]
   reactor_id = sub_sub_df["Reactor"].values[0]
-  target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"]
+  # target_temperature = experiment.sample_db[Sample_ID]["Temperature (C)"] # No longer in use
   reaction_time = experiment.sample_db[Sample_ID]["Reaction Time (min)"]
 
 

@@ -14,6 +14,7 @@ class Component(SQLModel, table= True):
     task_schedule: list["TaskSchedule"] = Relationship(back_populates= "component")
     reactor_telemetry: list["ReactorTelemetry"] = Relationship(back_populates= "reactor")
     samples: list["SampleInfo"] = Relationship(back_populates= "component_location")
+    sample_locations: list["SampleLocation"] = Relationship(back_populates= "component_location")
     # Nullable foreign key. Will be null if component is not syringe pump (loc0 = 5)
     # fluid_config_id: int | None = Field(default = None, foreign_key = "fluidconfig.id") 
     fluid_config: "FluidConfig" = Relationship(back_populates="component")
@@ -34,9 +35,12 @@ class FluidConfig(SQLModel, table= True):
     id: int | None = Field(default = None, primary_key = True)
     key: str = Field(index= True)
     name: str = Field(index= True)
+    batch_id: int = Field(index = True)
     formula: str
     empty_thresh: float
     purge_volume: float
+    concentration: float | None
+
     # component holds the address of the syringe pump associated with the fluid
     component_id: int = Field(foreign_key= "component.id")
     component: "Component" = Relationship(back_populates= "fluid_config")
@@ -62,7 +66,8 @@ class ComponentActionLog(SQLModel, table= True):
 
     component_id: int = Field(foreign_key= "component.id")
     component: Component = Relationship(back_populates= "comp_actions")
-    # Component actions may not be associated with a specific task, such as when the component action table is first initialized
+    # Component actions may not be associated with a specific task, 
+    # such as when the component action table is first initialized
     task_schedule_id: int | None = Field(default = None, foreign_key= "taskschedule.id")
     task_schedule: TaskSchedule = Relationship(back_populates= "comp_actions")
 
@@ -72,7 +77,7 @@ class ComponentActionLog(SQLModel, table= True):
 class SessionHistory(SQLModel, table= True):
     id: int | None = Field(default = None, primary_key = True)
     campaign_id: str = Field(index = True)
-    batch_id: str = Field(index = True)
+    batch_id: int = Field(index = True)
     batch_status: str | None
     start_time: float = Field(index = True)
     end_time: float | None = Field(default = None, index = True)
@@ -91,6 +96,7 @@ class SampleInfo(SQLModel, table= True):
     sample_id: str = Field(index = True) # Contains the 4 letter id for the single sample to be sythesized.
     barcode: str = Field(index = True)
     formula: str
+    batch_id: int = Field(index = True)
     empty_weight: float | None = Field(default = None) # Will get updated when empty weight is measured
     #status: str # Could potentially be a pointer to the active status instead?
     target_reaction_time: float
@@ -105,9 +111,11 @@ class SampleInfo(SQLModel, table= True):
 
 class SampleLocation(SQLModel, table= True):
     id: int | None = Field(default = None, primary_key = True)
-    location: str = Field(index = True)
+    # location: str = Field(index = True) # Using the reference to a component to store the location
     timestamp: datetime = Field(default_factory= lambda: datetime.now(UTC), index= True)
 
+    component_id: int = Field(foreign_key = "component.id")
+    component_location: Component = Relationship(back_populates= "sample_locations")
     sample_id: int = Field(foreign_key = "sampleinfo.id")
     sample: SampleInfo = Relationship(back_populates= "sample_locations")
     # Tasks associated with the Sample Locations are initially None
@@ -137,14 +145,15 @@ class TaskSchedule(SQLModel, table= True):
     campaign_id: str = Field(index = True)
     job_id: str = Field(index = True)
     job_type: str
-    # sample_id: str | None = Field(index = True)
-    # component_id: str  # Could replace with a reference to the actual component
+    batch_id: int = Field(index = True)
     task_id: str
     task_type: str
+    duration: float
     reactor: str | None
     target_temp: float | None
     start_time_Ds: float = Field(index = True)
     end_time_Ds: float = Field(index = True)
+    step: int
 
     sample_id: int | None = Field(foreign_key = "sampleinfo.id")
     sample: SampleInfo = Relationship(back_populates= "task_schedule") 
@@ -169,7 +178,7 @@ class TaskAction(SQLModel, table= True):
 class ReactorTelemetry(SQLModel, table= True):
     id: int | None = Field(default = None, primary_key = True)
     timestamp: datetime = Field(default_factory= lambda: datetime.now(UTC), index= True)
-    temperature: float
+    temperature: float | None
     reactor_id: int = Field(foreign_key= "component.id")
     reactor: Component = Relationship(back_populates= "reactor_telemetry")
 

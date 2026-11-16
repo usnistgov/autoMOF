@@ -16,20 +16,29 @@ from src.schedule_plotter import plot_gantt_chart
 from src.op_scheduler_timebudget import add_unit_ops_resource_collumn
 
 import src.experiments_SQL as eSQL
+import json
 
 seed = 42
 # seed = 41
 np.random.seed(seed)
 
 example = Cu_BTC(initial_samples = 4, batch_size = 4)
-
+batch_id = 0
 engine = eSQL.initialize_SQL_tables()
 eSQL.initialize_component_table(engine)
-eSQL.initialize_fluids(engine, example.fluid_db)
+eSQL.initialize_fluids(engine, example.fluid_db, batch_id)
 eSQL.initialize_component_actions(engine)
-eSQL.initialize_session_history(engine)
+eSQL.initialize_session_history(engine, batch_id)
 eSQL.initialize_lab_telemetry(engine)
-eSQL.create_new_batch(engine, example.sample_db)
+eSQL.create_new_batch(engine, example.sample_db, batch_id)
+
+generated_sample_database = eSQL.create_Cu_BTC_sample_db_from_SQL(engine)
+# print("\nORIGINAL SAMPLE DB: ", example.sample_db)
+# print("\nGENERATED SAMPLE DB: ", generated_sample_database)
+
+
+# print("\nORIGINAL FLUID DB: ", example.fluid_db)
+# print("\nGENERATED FLUID DB: ", generated_sample_database)
 #eSQL.initialize_sample_locations(engine)
 
 num_reactors = 2
@@ -44,11 +53,12 @@ unit_ops_df, op_order = create_unit_ops_df(example.sample_db,
                                  False, # Independent Centrifuge step
                                  False, # Independent Remove_supernatent step
                                  False, # Independent Sonicate step
+                                 0, # Batch id number, zero indexed
                                  )
 
-unit_ops_df, reactor_df = assign_reactors(unit_ops_df, num_reactors, 4)
-reactor_df.to_csv("SQL Files/reactorOld.csv")
-eSQL.initialize_reactor_use(engine, reactor_df)
+unit_ops_df, reactor_df = assign_reactors(unit_ops_df, num_reactors, 4, batch_id)
+# reactor_df.to_csv("SQL Files/reactorOld.csv")
+eSQL.initialize_reactor_use(engine, reactor_df, batch_id)
 
 start_time = time.time()
 unit_ops_df = solve_job_shop_schedule(unit_ops_df, num_reactors)
@@ -57,7 +67,6 @@ elapsed_time = end_time - start_time
 print(f"Elapsed time for scheduling: {elapsed_time:.6f} seconds")
 
 unit_ops_df = interleave_reactor_preheating(unit_ops_df, 5)
-print(unit_ops_df)
 '''
 write_directory = "." 
 suffix = "initial_batch"
@@ -92,12 +101,12 @@ sub_df = unit_ops_df[unit_ops_df["Status"] == "To Do"]
 sub_sub_df = sub_df[["index", "Sample Name", "UnitOP", "Duration (Ds)", "Reactor", "Reactor Temperature (C)", "Status"]]
 
 example_2 = Cu_BTC(initial_samples = 8, batch_size = 4)
-
-eSQL.initialize_fluids(engine, example_2.fluid_db)
+batch_id = 1
+eSQL.initialize_fluids(engine, example_2.fluid_db, batch_id)
 eSQL.initialize_component_actions(engine)
 #eSQL.initialize_session_history(engine)
 #eSQL.initialize_lab_telemetry(engine)
-eSQL.create_new_batch(engine, example_2.sample_db)
+eSQL.create_new_batch(engine, example_2.sample_db, batch_id)
 #eSQL.initialize_sample_locations(engine)
 
 new_ops_df, op_order_2 = create_unit_ops_df(example_2.sample_db, 
@@ -109,12 +118,13 @@ new_ops_df, op_order_2 = create_unit_ops_df(example_2.sample_db,
                                  
                                  False, # Independent Centrifuge step
                                  False, # Independent Remove_supernatent step
-                                 False, # Independent Sonicate step
+                                 False, # Independent Sonicate step,
+                                 1, # Batch id number, zero indexed
                                  )
 
-new_ops_df, reactor_df = assign_reactors(new_ops_df, num_reactors, 4)
-reactor_df.to_csv("SQL Files/reactorNew.csv")
-eSQL.initialize_reactor_use(engine, reactor_df)
+new_ops_df, reactor_df = assign_reactors(new_ops_df, num_reactors, 4, batch_id)
+# reactor_df.to_csv("SQL Files/reactorNew.csv")
+eSQL.initialize_reactor_use(engine, reactor_df, batch_id)
 
 next_batch_ops_df = pd.concat([sub_sub_df, new_ops_df], ignore_index=True)
 
@@ -125,7 +135,34 @@ elapsed_time = end_time - start_time
 print(f"Elapsed time for re-scheduling: {elapsed_time:.6f} seconds")
 
 next_batch_ops_df = interleave_reactor_preheating(next_batch_ops_df, 5)
-next_batch_ops_df.to_csv("SQL Files/nextBatch.csv")
+# next_batch_ops_df.to_csv("SQL Files/nextBatch.csv")
+
+eSQL.initialize_task_schedules(engine, next_batch_ops_df)
+eSQL.initialize_task_actions(engine)
+eSQL.initialize_reactor_telemetry(engine)
+
+eSQL.start_reactor(engine, reactor_address= [4, 0, None], task_id_num= 1)
+eSQL.react_sample(engine, reactor_address= [4, 0, 1], task_id_num= 7)
+eSQL.start_reactor(engine, reactor_address= [4, 0, None], task_id_num= 7)
+system_db_from_SQL = eSQL.create_system_db_from_SQL(engine)
+print("\nSYSTEM DB REACTOR FROM SQL: ", system_db_from_SQL["reactor"])
+
+# generated_sample_database = eSQL.create_Cu_BTC_sample_db_from_SQL(engine)
+# print("\nORIGINAL SAMPLE DB: ", example.sample_db)
+# print("\nGENERATED SAMPLE DB: ", generated_sample_database)
+# eSQL.append_fluid_event(engine, purge_status= False, volume= 123, fluid_key= "Cu Solution")
+# generated_fluid_db = eSQL.create_fluid_db_from_SQL(engine)
+# print("\nORIGINAL EXAMPLE2 FLUID DB: ", example_2.fluid_db)
+# print("\nGENERATED EXAMPLE2 FLUID DB: ", generated_fluid_db)
+
+# combined_fluid_db = {"Batch 0" : example.fluid_db, "Batch 1" : example_2.fluid_db}
+# print("COMBINED FLUID DB: ", combined_fluid_db)
+
+generated_reactor_df = eSQL.create_reactor_db_from_SQL(engine)
+print("Generated Reactor df: ", generated_reactor_df)
+
+generate_unitops_df = eSQL.create_unitops_db_from_SQL(engine)
+generate_unitops_df.to_csv("SQL Files/generatedUnitOps.csv")
 '''
 write_directory = "."
 suffix = "re-schedule"
