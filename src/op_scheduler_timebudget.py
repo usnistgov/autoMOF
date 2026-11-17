@@ -996,7 +996,7 @@ def interleave_reactor_preheating(unit_ops_df, heating_rate):
                       prev_end_time = reactor_df.iloc[i -1]['End Time (Ds)']
                       new_row['Start Time (Ds)'] = prev_end_time 
                       new_row['End Time (Ds)'] = prev_end_time + duration
-                  new_row['Op Order'] = 0 
+                #   new_row['Op Order'] = 0 
                   new_row['Sample Name'] = None
                   
                   # Append the new row to the list
@@ -1009,7 +1009,7 @@ def interleave_reactor_preheating(unit_ops_df, heating_rate):
   new_rows_df = pd.DataFrame(new_rows)
 
   # Concatenate the original DataFrame with the new rows DataFrame
-  unit_ops_df = pd.concat([unit_ops_df, new_rows_df]).sort_values(by=['Start Time (Ds)', 'Op Order']).reset_index(drop=True)
+  unit_ops_df = pd.concat([unit_ops_df, new_rows_df]).sort_values(by=['Start Time (Ds)']).reset_index(drop=True)
 
   # Identify 'pre_heat_reactor' and 'react' steps with the same reactor and temperature
   pre_heat_rows = unit_ops_df[unit_ops_df['UnitOP'] == 'pre_heat_reactor']

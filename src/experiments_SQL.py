@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import MOF_SQL_Tables as mst
+import src.sql_tables as mst
 import src.system_db_setup
 from sqlmodel import Session, select
 from sqlalchemy import func # For getting max and min values from a table
@@ -116,22 +116,6 @@ def initialize_component_actions(engine):
             component_action = mst.ComponentActionLog(status= None, occupancy= "Empty", 
                                                       mutex= "Available", component= c)
             session.add(component_action)
-        session.commit()
-
-def initialize_fluid_events_Cu_BTC(engine):
-    with Session(engine) as session:
-        fluid_1 = session.exec(select(mst.FluidConfig).where(mst.FluidConfig.name == "Cu Nitrate")).one()
-        fluid_event_1 = mst.FluidEventLog(purge_status= True, volume= 120.0, fluid= fluid_1)
-        session.add(fluid_event_1)
-
-        fluid_2 = session.exec(select(mst.FluidConfig).where(mst.FluidConfig.name == "BTC Solution")).one()
-        fluid_event_2 = mst.FluidEventLog(purge_status= True, volume= 100.0, fluid= fluid_2)
-        session.add(fluid_event_2)
-
-        fluid_3 = session.exec(select(mst.FluidConfig).where(mst.FluidConfig.name == "Water")).one()
-        fluid_event_3 = mst.FluidEventLog(purge_status= True, volume= 300.0, fluid= fluid_3)
-        session.add(fluid_event_3)
-
         session.commit()
 
 def initialize_session_history(engine, batch_id):
